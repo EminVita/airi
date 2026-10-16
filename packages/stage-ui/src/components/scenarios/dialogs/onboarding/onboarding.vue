@@ -21,6 +21,7 @@ import StepProviderSelection from './step-provider-selection.vue'
 import StepWelcome from './step-welcome.vue'
 
 import { useAnalytics } from '../../../../composables/use-analytics'
+import { useAiriCardStore } from '../../../../stores/modules/airi-card'
 import { useConsciousnessStore } from '../../../../stores/modules/consciousness'
 import { useProviderConfigStore } from '../../../../stores/providers/config'
 import { useProviderStore } from '../../../../stores/providers/provider'
@@ -47,6 +48,7 @@ const providersStore = useProviderStore()
 const providerStore = useProviderConfigStore()
 const { allChatProvidersMetadata } = storeToRefs(providersStore)
 const consciousnessStore = useConsciousnessStore()
+const cards = useAiriCardStore()
 const {
   activeProvider,
 } = storeToRefs(consciousnessStore)
@@ -177,6 +179,7 @@ const isLastStep = computed(() => step.value === allSteps.value.length - 1)
 const currentStepProps = computed(() => currentStep.value?.props?.() ?? {})
 
 async function handleSave() {
+  await cards.updateActiveCardConsciousness({ provider: activeProvider.value, model: consciousnessStore.activeModel })
   trackOnboardingStepCompleted(currentStep.value?.id ?? 'unknown')
   trackOnboardingCompleted({
     selected_provider_type: selectedProviderType.value,

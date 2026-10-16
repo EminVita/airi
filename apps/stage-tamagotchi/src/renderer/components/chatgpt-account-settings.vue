@@ -6,6 +6,7 @@ import { defineInvoke } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/electron/renderer'
 import { errorMessageFrom } from '@moeru/std'
 import { chatgptModels, chatgptSelect, chatgptSession, chatgptSignIn, chatgptSignOut } from '@proj-airi/stage-shared/chatgpt'
+import { useAiriCardStore } from '@proj-airi/stage-ui/stores/modules/airi-card'
 import { useConsciousnessStore } from '@proj-airi/stage-ui/stores/modules/consciousness'
 import { useProviderStore } from '@proj-airi/stage-ui/stores/providers/provider'
 import { Button, Callout, FieldSelect, ScrollableArea } from '@proj-airi/ui'
@@ -18,6 +19,7 @@ const props = defineProps<{
 }>()
 const { t, te } = useI18n()
 const providers = useProviderStore()
+const cards = useAiriCardStore()
 const consciousness = useConsciousnessStore()
 const eventa = createContext(window.electron.ipcRenderer)
 const session = shallowRef<ChatGPTSession>({ accounts: [] })
@@ -101,8 +103,7 @@ function signOut() {
 }
 
 function activate() {
-  consciousness.activeProvider = 'chatgpt'
-  consciousness.activeModel = selectedModel.value
+  return run(() => cards.updateActiveCardConsciousness({ provider: 'chatgpt', model: selectedModel.value }))
 }
 
 async function next() {

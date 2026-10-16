@@ -11,6 +11,7 @@ The main process encrypts credentials with Electron safeStorage in `chatgpt.bin`
 Account changes cancel active requests. Sign-out clears local credentials and attempts remote revocation.
 Use **Manage ChatGPT usage** to review limits or disconnect AIRI.
 This provider uses the [official local OAuth flow](https://developers.openai.com/siwc/token-sharing-open-source) and stateless Responses requests.
+Function tools use non-strict validation to preserve AIRI's optional parameters. Model selection is saved to the active character.
 Speech synthesis requires a separate provider. This account connection does not supply a speech API.
 Shared character behavior belongs in `packages/stage-ui`. Use `stage-web` for browser-only features.
 

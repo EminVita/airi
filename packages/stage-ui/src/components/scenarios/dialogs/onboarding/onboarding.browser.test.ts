@@ -16,6 +16,11 @@ import OnboardingDialog from './onboarding.vue'
 import StepProviderConfiguration from './step-provider-configuration.vue'
 
 import { useAuthStore } from '../../../../stores/auth'
+import { useAiriCardStore } from '../../../../stores/modules/airi-card'
+import { useArtistryStore } from '../../../../stores/modules/artistry'
+import { useConsciousnessStore } from '../../../../stores/modules/consciousness'
+import { useSpeechStore } from '../../../../stores/modules/speech'
+import { useVisionStore } from '../../../../stores/modules/vision'
 import { useProviderConfigStore } from '../../../../stores/providers/config'
 import { useProviderStore } from '../../../../stores/providers/provider'
 
@@ -38,22 +43,29 @@ function createSyncedContext(namespace: string, leadership: LeadershipMode) {
   pinia.use(runtime.plugin)
   let providerStore: ReturnType<typeof useProviderStore> | undefined
   let providerConfigStore: ReturnType<typeof useProviderConfigStore> | undefined
+  let cardStore: ReturnType<typeof useAiriCardStore> | undefined
   const app = createApp({
     setup() {
       providerStore = useProviderStore()
       providerConfigStore = useProviderConfigStore()
+      cardStore = useAiriCardStore()
+      useArtistryStore()
+      useConsciousnessStore()
+      useSpeechStore()
+      useVisionStore()
       return () => null
     },
   })
   app
     .use(createI18n({ legacy: false, locale: 'en', messages: { en } }))
     .use(pinia)
+    .use(PiniaColada)
     .mount(document.createElement('div'))
-  if (!providerStore || !providerConfigStore)
+  if (!providerStore || !providerConfigStore || !cardStore)
     throw new Error('Provider stores did not initialize')
 
   syncedContexts.push({ app, pinia, runtime })
-  return { pinia, providerConfigStore, providerStore, runtime }
+  return { pinia, providerConfigStore, providerStore, cardStore, runtime }
 }
 
 function createTestI18n() {
@@ -62,10 +74,13 @@ function createTestI18n() {
 
 beforeEach(() => {
   localStorage.clear()
+  const browserFetch = globalThis.fetch
   // The validators, model listing, and the ping check all run against the
   // configured gateway. One stub answers every OpenAI-compatible endpoint.
-  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input: RequestInfo | URL) => {
+  vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input: RequestInfo | URL, init) => {
     const url = String(input instanceof Request ? input.url : input)
+    if (url.startsWith('data:') || url.startsWith('blob:') || url.includes('.wasm'))
+      return browserFetch(input, init)
     if (url.includes('/chat/completions')) {
       return Response.json({
         id: 'chatcmpl-test',
@@ -118,10 +133,13 @@ it('publishes the onboarding login click on the leader', async () => {
 //
 // The desktop onboarding window is a sync follower; this test drives the real
 // dialog there and asserts the save reaches the leader and localStorage.
-it('persists configured credentials through the leader and loads the model list', async () => {
+// Saving only runtime selections also left the session character without a model.
+// Completion now saves the model through the character's synchronized action.
+it('persists credentials and the selected character model through the leader', async () => {
   const namespace = `onboarding-dialog:${crypto.randomUUID()}`
   const leader = createSyncedContext(namespace, 'leader-only')
   await expect.poll(() => leader.runtime.isLeader()).toBe(true)
+  await leader.cardStore.initialize()
 
   const follower = createSyncedContext(namespace, 'follower-only')
   await expect.poll(() => follower.runtime.getLeaderId()).toBe(leader.runtime.participantId)
@@ -167,6 +185,17 @@ it('persists configured credentials through the leader and loads the model list'
     { timeout: 10_000 },
   ).toContain('grok-4.6')
   await expect.element(screen.getByText('grok-4.6')).toBeInTheDocument()
+  await screen.getByText('grok-4.6').click()
+  await screen.getByRole('button', { name: 'Save and continue' }).click()
+
+  await expect.poll(() => leader.cardStore.getModules('default').consciousness).toEqual({
+    provider: providerId,
+    model: 'grok-4.6',
+  })
+  await expect.poll(() => follower.cardStore.getModules('default').consciousness).toEqual({
+    provider: providerId,
+    model: 'grok-4.6',
+  })
 })
 
 // ROOT CAUSE:

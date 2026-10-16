@@ -17,12 +17,15 @@ const requestSchema = object({
 /**
  * Projects AIRI Responses requests onto the fields accepted by ChatGPT plan usage.
  * The request remains stateless. Local tools use additional_tools without changing their names.
+ * Function tools use non-strict mode to preserve AIRI's optional fields and nested parameter schemas.
  * See https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations.
  */
 export function prepareRequest(body: string): string {
   const request = parse(requestSchema, JSON.parse(body))
   const input = request.input.map(item => item.role === 'system' ? { ...item, role: 'developer' } : item)
-  const functions = request.tools?.filter(tool => tool.type === 'function' || tool.type === 'custom')
+  const functions = request.tools
+    ?.filter(tool => tool.type === 'function' || tool.type === 'custom')
+    .map(tool => tool.type === 'function' ? { ...tool, strict: false } : tool)
   const hosted = request.tools?.filter(tool => tool.type !== 'function' && tool.type !== 'custom')
   if (hosted?.some(tool => tool.type !== 'web_search'))
     throw new Error('CHATGPT_UNSUPPORTED_TOOL')

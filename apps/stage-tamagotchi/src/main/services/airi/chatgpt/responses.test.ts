@@ -32,8 +32,21 @@ describe('chatGPT plan requests', () => {
     const history = [{ type: 'function_call', name: 'set_expression', call_id: 'call-1', arguments: '{}' }, { type: 'function_call_output', call_id: 'call-1', output: 'ok' }]
     const body = JSON.parse(prepareRequest(JSON.stringify({ model: 'available-model', input: history, tools: [tool, { type: 'web_search' }] })))
     expect(body.input.slice(0, 2)).toEqual(history)
-    expect(body.input[2]).toEqual({ type: 'additional_tools', role: 'developer', tools: [tool] })
+    expect(body.input[2]).toEqual({ type: 'additional_tools', role: 'developer', tools: [{ ...tool, strict: false }] })
     expect(body.tools).toEqual([{ type: 'web_search' }])
+  })
+
+  it('preserves optional and nested tool parameters without strict schema requirements', () => {
+    const parameters = {
+      type: 'object',
+      properties: { words: { type: 'array', items: { type: 'object', properties: { text: { type: 'string' } } } } },
+    }
+    const tool = { type: 'function', name: 'configure_wake_words', parameters, strict: true }
+    const custom = { type: 'custom', name: 'custom_tool' }
+    const body = JSON.parse(prepareRequest(JSON.stringify({ model: 'available-model', input: [], tools: [tool, custom] })))
+    expect(body.input[0].tools[0]).toEqual({ ...tool, strict: false })
+    expect(body.input[0].tools[0].parameters).toEqual(parameters)
+    expect(body.input[0].tools[1]).toEqual(custom)
   })
 
   it('rejects unsupported hosted tools and malformed requests before inference', () => {
