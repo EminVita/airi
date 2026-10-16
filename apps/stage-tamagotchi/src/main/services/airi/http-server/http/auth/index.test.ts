@@ -27,6 +27,15 @@ describe('startLoopbackServer', () => {
     await expect(server.result).resolves.toEqual({ code: 'ok' })
   })
 
+  it('returns a dynamic client ID only after the callback state matches', async () => {
+    const server = await startLoopbackServer('registration-state')
+    servers.push(server)
+    const forged = await fetch(`http://127.0.0.1:${server.port}/callback?code=bad&state=wrong&client_id=wrong`)
+    expect(forged.status).toBe(400)
+    await fetch(`http://127.0.0.1:${server.port}/callback?code=ok&state=registration-state&client_id=oaiapp_test`)
+    await expect(server.result).resolves.toEqual({ code: 'ok', clientId: 'oaiapp_test' })
+  })
+
   /** @example A forged callback cannot consume the one-shot server before the valid callback. */
   it('rejects a mismatched state without settling the login attempt', async () => {
     const server = await startLoopbackServer('expected-state')

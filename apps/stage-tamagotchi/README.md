@@ -1,6 +1,17 @@
 # Stage Tamagotchi
 
 The Electron desktop app runs AIRI characters, chat, voice, and desktop tools.
+
+## ChatGPT account
+
+On the welcome screen, select **Setup with your provider**, then choose **ChatGPT account** from the provider list.
+Select **Continue with ChatGPT** and approve plan usage in the browser. Select **Next**, choose a model, and complete setup.
+For later changes, open **Settings → Providers → ChatGPT account**.
+The main process encrypts credentials with Electron safeStorage in `chatgpt.bin` under the app's user-data directory.
+Account changes cancel active requests. Sign-out clears local credentials and attempts remote revocation.
+Use **Manage ChatGPT usage** to review limits or disconnect AIRI.
+This provider uses the [official local OAuth flow](https://developers.openai.com/siwc/token-sharing-open-source) and stateless Responses requests.
+Speech synthesis requires a separate provider. This account connection does not supply a speech API.
 Shared character behavior belongs in `packages/stage-ui`. Use `stage-web` for browser-only features.
 
 ## Development

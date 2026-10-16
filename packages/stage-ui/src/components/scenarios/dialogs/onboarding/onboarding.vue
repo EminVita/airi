@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { Component } from 'vue'
+
 import type { ProviderMode } from '../../../../composables/use-analytics'
 import type { ProviderMetadata } from '../../../../libs/providers/metadata'
 import type {
@@ -30,6 +32,7 @@ interface Emits {
 
 const props = withDefaults(defineProps<{
   extraSteps?: OnboardingStep[]
+  providerConfigurationComponents?: Record<string, Component>
 }>(), {
   extraSteps: () => [],
 })
@@ -50,7 +53,7 @@ const {
 
 // Popular providers for first-time setup
 const popularProviders = computed(() => {
-  const popular = ['openai', 'azure-openai', 'anthropic', 'amazon-bedrock', 'google-generative-ai', 'groq', 'nvidia', 'openrouter-ai', 'ollama', 'deepseek', 'player2', 'openai-compatible']
+  const popular = ['openai', 'chatgpt', 'azure-openai', 'anthropic', 'amazon-bedrock', 'google-generative-ai', 'groq', 'nvidia', 'openrouter-ai', 'ollama', 'deepseek', 'player2', 'openai-compatible']
   return allChatProvidersMetadata.value
     .filter(provider => popular.includes(provider.id))
     .sort((a, b) => popular.indexOf(a.id) - popular.indexOf(b.id))
@@ -140,7 +143,7 @@ const allSteps = computed<OnboardingStep[]>(() => {
     },
     {
       id: 'provider-configuration',
-      component: StepProviderConfiguration,
+      component: props.providerConfigurationComponents?.[selectedProviderId.value] ?? StepProviderConfiguration,
       props: () => ({
         selectedProviderId: selectedProviderId.value,
         selectedProvider: selectedProvider.value,
@@ -224,13 +227,13 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="onboarding-step-container" min-h-0 flex flex-1 flex-col>
+  <div :class="['onboarding-step-container', 'min-h-0 flex flex-1 flex-col']">
     <Transition :name="direction === 'next' ? 'slide-next' : 'slide-prev'" mode="out-in">
       <component
         :is="currentStep.component"
         v-if="currentStep"
         :key="currentStep.id"
-        class="flex flex-1 flex-col"
+        :class="['flex flex-1 flex-col']"
         v-bind="currentStepProps"
         :on-next="requestNextStep"
         :on-previous="requestPreviousStep"

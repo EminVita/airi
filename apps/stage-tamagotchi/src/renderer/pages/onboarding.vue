@@ -8,6 +8,8 @@ import { useTheme } from '@proj-airi/ui'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 
+import ChatGPTAccountSettings from '../components/chatgpt-account-settings.vue'
+
 import { electronAuthStartLogin, electronOnboardingClose } from '../../shared/eventa'
 import { useOnboardingAuthentication } from '../composables/use-onboarding-authentication'
 import { useAuthStatusStore } from '../stores/auth-status'
@@ -52,12 +54,15 @@ async function handleConfigured() {
 <template>
   <!-- Same flex/min-h-0 chain as OnboardingDialog so model step grid scrolls inside the viewport (not the whole page). -->
   <div
-    class="onboarding-root h-full min-h-0 w-full flex flex-col overflow-hidden overscroll-none"
-    :class="bgClass"
+    :class="['onboarding-root', 'h-full min-h-0 w-full flex flex-col overflow-hidden overscroll-none', bgClass]"
   >
-    <div class="min-h-8 w-full flex-shrink-0 select-none drag-region" :class="bgClass" />
-    <div class="mx-8 mb-8 mt-2 min-h-0 flex flex-1 flex-col">
-      <OnboardingScreen :extra-steps="extraSteps" @skipped="handleSkipped" @configured="handleConfigured" />
+    <div :class="['min-h-8 w-full flex-shrink-0 select-none drag-region', bgClass]" />
+    <div :class="['mx-8 mb-8 mt-2 min-h-0 flex flex-1 flex-col']">
+      <OnboardingScreen
+        :extra-steps="extraSteps"
+        :provider-configuration-components="{ chatgpt: ChatGPTAccountSettings }"
+        @skipped="handleSkipped" @configured="handleConfigured"
+      />
     </div>
   </div>
 </template>

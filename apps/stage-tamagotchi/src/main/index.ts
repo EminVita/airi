@@ -37,6 +37,7 @@ import { createI18n } from './libs/i18n'
 import { setupAppleSpeechTranscriptionService } from './services/airi/apple-speech-transcription'
 import { setupAppleVisionService } from './services/airi/apple-vision'
 import { setupServerChannel } from './services/airi/channel-server'
+import { setupChatGPT } from './services/airi/chatgpt'
 import { setupComputerUse } from './services/airi/computer-use'
 import { setupGodotStageManager } from './services/airi/godot-stage'
 import { setupHomeAssistant } from './services/airi/home-assistant'
@@ -308,6 +309,11 @@ app.whenReady().then(async () => {
     build: ({ dependsOn }) => setupAppleVisionService(dependsOn),
   })
 
+  const chatgpt = injeca.provide('modules:chatgpt', {
+    dependsOn: { lifecycle },
+    build: ({ dependsOn }) => setupChatGPT(dependsOn),
+  })
+
   const mcpManager = injeca.provide('modules:mcp-manager', {
     build: async () => setupMcpManager(),
   })
@@ -489,7 +495,7 @@ app.whenReady().then(async () => {
   }
 
   injeca.invoke({
-    dependsOn: { mainWindow, tray, serverChannel, airiHttpServer, godotStageManager, pluginHost, mcpManager, onboardingWindow: onboardingWindowManager, widgetsWindow: widgetsManager, spotlightWindow, artistryConfig },
+    dependsOn: { mainWindow, tray, serverChannel, airiHttpServer, godotStageManager, pluginHost, mcpManager, onboardingWindow: onboardingWindowManager, widgetsWindow: widgetsManager, spotlightWindow, artistryConfig, chatgpt },
     callback: async (deps) => {
       const { context } = createContext(ipcMain)
       setupComputerUse(context)

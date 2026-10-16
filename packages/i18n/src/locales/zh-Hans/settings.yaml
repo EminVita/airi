@@ -2004,6 +2004,30 @@ pages:
         title: 月之暗面
       modelscope:
         title: 魔搭社区 ModelScope
+      chatgpt:
+        title: 'ChatGPT 账号'
+        back: '返回'
+        description: '登录 ChatGPT，在桌面应用中使用账号支持的套餐额度。'
+        account: 'ChatGPT 账号'
+        sign-in: '使用 ChatGPT 继续'
+        add-account: '添加账号'
+        sign-out: '退出登录'
+        cancel: '取消登录'
+        using-plan: '正在使用 ChatGPT 套餐'
+        sign-in-required: '请先登录，并授权 AIRI 使用 ChatGPT 套餐额度。'
+        manage-usage: '管理 ChatGPT 用量'
+        model: '模型'
+        use-model: '将此模型用于聊天'
+        active-model: '聊天模型：{model}'
+        speech-note: '请在语音模块中单独配置语音合成。ChatGPT 账号接入不包含语音合成功能。'
+        revocation-unconfirmed: '已退出本机登录，但未确认远程授权是否撤销。请在 ChatGPT 设置中断开 AIRI。'
+        errors:
+          CHATGPT_REQUEST_FAILED: '请求失败。请检查网络连接和 ChatGPT 可用额度后重试。'
+          CHATGPT_SIGN_IN_FAILED: '登录已取消或失败，请重试。'
+          CHATGPT_SIGN_IN_REQUIRED: '登录已过期，请重新登录。'
+          CHATGPT_PLAN_PERMISSION_REQUIRED: '请在 ChatGPT 设置中允许使用套餐额度，再重新登录。'
+          CHATGPT_STORAGE_UNAVAILABLE: '无法使用凭据加密存储，请检查操作系统的凭据存储服务。'
+          CHATGPT_IDENTITY_MISMATCH: '账号验证失败，请使用选定的账号重新登录。'
       openai:
         description: OpenAi.com
       openai-compatible:

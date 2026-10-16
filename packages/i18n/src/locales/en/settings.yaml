@@ -2136,6 +2136,30 @@ pages:
       ollama:
         description: ollama.ai
         title: Ollama
+      chatgpt:
+        title: 'ChatGPT account'
+        back: 'Back'
+        description: 'Sign in with ChatGPT to use your eligible plan in the desktop app.'
+        account: 'ChatGPT account'
+        sign-in: 'Continue with ChatGPT'
+        add-account: 'Add account'
+        sign-out: 'Sign out'
+        cancel: 'Cancel sign-in'
+        using-plan: 'Using ChatGPT plan'
+        sign-in-required: 'Sign in and allow ChatGPT plan usage to enable chat.'
+        manage-usage: 'Manage ChatGPT usage'
+        model: 'Model'
+        use-model: 'Use this model for chat'
+        active-model: 'Chat model: {model}'
+        speech-note: 'Configure speech synthesis separately in the Speech module. ChatGPT account access does not include speech synthesis.'
+        revocation-unconfirmed: 'Signed out locally. Remote revocation was not confirmed. Disconnect AIRI in ChatGPT settings.'
+        errors:
+          CHATGPT_REQUEST_FAILED: 'The request failed. Check your connection and ChatGPT usage, then try again.'
+          CHATGPT_SIGN_IN_FAILED: 'Sign-in was cancelled or failed. Try again.'
+          CHATGPT_SIGN_IN_REQUIRED: 'Your session expired. Sign in again.'
+          CHATGPT_PLAN_PERMISSION_REQUIRED: 'Allow ChatGPT plan usage in ChatGPT settings, then sign in again.'
+          CHATGPT_STORAGE_UNAVAILABLE: 'Protected credential storage is unavailable. Check your operating system credential storage.'
+          CHATGPT_IDENTITY_MISMATCH: 'The account verification failed. Sign in again with the selected account.'
       openai:
         description: openai.com
         title: OpenAI

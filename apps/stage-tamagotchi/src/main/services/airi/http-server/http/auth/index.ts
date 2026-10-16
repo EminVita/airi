@@ -8,6 +8,8 @@ import { createH3Server } from '../../server'
 export interface LoopbackCallbackResult {
   /** Authorization code accepted only after the OIDC state matches. */
   code: string
+  /** Dynamic OAuth registration can return an issued client ID with the code. */
+  clientId?: string
 }
 
 /**
@@ -121,7 +123,7 @@ export async function startLoopbackServer(expectedState: string): Promise<{
     }
 
     finish(() => {
-      resolveResult({ code })
+      resolveResult({ code, ...(typeof query.client_id === 'string' ? { clientId: query.client_id } : {}) })
     })
 
     return new Response('<html><body><h2>Authentication successful!</h2><p>You can close this window and return to the app.</p></body></html>', {
