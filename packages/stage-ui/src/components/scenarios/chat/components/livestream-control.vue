@@ -4,20 +4,22 @@ import type { LivestreamCommand } from '../../../../services/livestream'
 
 import { defineInvoke } from '@moeru/eventa'
 import { errorMessageFrom } from '@moeru/std'
-import { Button, Collapsible, FieldInput, GhostButton } from '@proj-airi/ui'
+import { Button, FieldInput, GhostButton } from '@proj-airi/ui'
 import { computed, onMounted, onScopeDispose, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import LivestreamRehearsal from './livestream-rehearsal.vue'
-import LivestreamSetup from './livestream-setup.vue'
 
 import { getLivestreamContext, livestreamCommand, livestreamRequestSnapshot, livestreamSnapshot } from '../../../../services/livestream'
+import { useLivestreamSettingsStore } from '../../../../stores/livestream-settings'
 
-const props = defineProps<{ characterId: string }>()
+const props = defineProps<{ characterId: string, standalone?: boolean, unsaved?: boolean }>()
+const emit = defineEmits<{ configure: [route: '/settings/livestream'] }>()
 const { t } = useI18n()
-const opened = shallowRef(false)
-const direction = shallowRef('')
-const details = shallowRef('')
+const settings = useLivestreamSettingsStore()
+const opened = shallowRef(!!props.standalone)
+const direction = computed(() => settings.saved.config.direction)
+const details = computed(() => settings.saved.config.details)
 const mode = shallowRef<Settings['mode']>('text')
 const nickname = shallowRef('')
 const message = shallowRef('')
@@ -29,7 +31,7 @@ const state = shallowRef<Snapshot>()
 const mockEnabled = shallowRef(false)
 const active = computed(() => state.value?.phase === 'running')
 const paused = computed(() => state.value?.phase === 'paused')
-const canStart = computed(() => connected.value && !active.value && !paused.value
+const canStart = computed(() => connected.value && !props.unsaved && !active.value && !paused.value
   && direction.value.trim().length > 0 && direction.value.length <= 200
   && details.value.length <= 12000 && (mode.value === 'speech' || details.value.trim().length > 0))
 const context = getLivestreamContext()
@@ -91,27 +93,47 @@ async function sendComment() {
 </script>
 
 <template>
-  <Collapsible v-model="opened" :class="['w-full text-sm']">
-    <template #trigger="{ visible, setVisible }">
-      <GhostButton
-        :aria-expanded="visible"
-        :class="['w-full justify-between']"
-        @click="setVisible(!visible)"
-      >
-        <span :class="['flex items-center gap-2']">
-          <span :class="['i-solar:microphone-3-linear']" aria-hidden="true" />
-          {{ t('stage.livestream.title') }}
-        </span>
-        <span :class="['text-xs', active ? 'text-primary-600 dark:text-primary-300' : 'text-neutral-500']">
-          {{ t(`stage.livestream.phase.${state?.phase ?? 'stopped'}`) }}
-        </span>
-      </GhostButton>
-    </template>
-    <section :aria-label="t('stage.livestream.title')" :class="['max-h-[65vh] flex flex-col gap-3 overflow-y-auto', 'rounded-xl bg-neutral-50 p-3 dark:bg-neutral-950']">
+  <div :class="['w-full text-sm']">
+    <GhostButton
+      v-if="!props.standalone"
+      :aria-expanded="opened"
+      :class="['w-full justify-between']"
+      @click="opened = !opened"
+    >
+      <span :class="['flex items-center gap-2']">
+        <span :class="['i-solar:microphone-3-linear']" aria-hidden="true" />
+        {{ t('stage.livestream.title') }}
+      </span>
+      <span :class="['text-xs', active ? 'text-primary-600 dark:text-primary-300' : 'text-neutral-500']">
+        {{ t(`stage.livestream.phase.${state?.phase ?? 'stopped'}`) }}
+      </span>
+    </GhostButton>
+    <section v-if="props.standalone || opened" :aria-label="t('stage.livestream.title')" :class="['flex flex-col gap-3', !props.standalone && 'max-h-[65vh] overflow-y-auto', 'rounded-xl bg-neutral-50 p-4 dark:bg-neutral-950']">
       <p :class="['text-xs text-neutral-500 dark:text-neutral-400']">
         {{ t('stage.livestream.description') }}
       </p>
-      <LivestreamSetup v-if="!active && !paused" v-model:direction="direction" v-model:details="details" v-model:mode="mode" />
+      <Button v-if="!props.standalone" size="sm" @click="emit('configure', '/settings/livestream')">
+        {{ t('stage.livestream.editor.open') }}
+      </Button>
+      <template v-if="!active && !paused">
+        <p :class="['break-words text-sm']">
+          {{ t('stage.livestream.editor.saved-topic', { topic: direction || t('stage.livestream.editor.no-topic') }) }}
+        </p>
+        <div role="group" :aria-label="t('stage.livestream.mode')" :class="['flex flex-wrap gap-2']">
+          <Button size="sm" :aria-pressed="mode === 'text'" @click="mode = 'text'">
+            {{ t('stage.livestream.text-mode') }}
+          </Button>
+          <Button size="sm" :aria-pressed="mode === 'speech'" @click="mode = 'speech'">
+            {{ t('stage.livestream.speech-mode') }}
+          </Button>
+        </div>
+        <p v-if="mode === 'text'" :class="['text-xs text-neutral-500 dark:text-neutral-400']">
+          {{ t('stage.livestream.text-description') }}
+        </p>
+        <p v-if="props.unsaved" role="status" :class="['text-sm text-amber-700 dark:text-amber-300']">
+          {{ t('stage.livestream.editor.save-before-start') }}
+        </p>
+      </template>
       <div :class="['flex flex-wrap gap-2']">
         <Button v-if="!active && !paused" size="sm" color="primary" variant="primary" :disabled="!canStart" :loading="pending" @click="send({ type: 'start', characterId: props.characterId, settings: { direction: direction.trim(), details, mode } })">
           {{ t(mode === 'text' ? 'stage.livestream.start-rehearsal' : 'stage.livestream.start') }}
@@ -174,5 +196,5 @@ async function sendComment() {
       </template>
       <LivestreamRehearsal v-if="state?.sessionId" v-model:nickname="nickname" v-model:message="message" :state="state" :pending="pending" @comment="sendComment" />
     </section>
-  </Collapsible>
+  </div>
 </template>

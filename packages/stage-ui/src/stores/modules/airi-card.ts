@@ -26,8 +26,6 @@ import { computed, ref, shallowRef, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
-import soul from '../../constants/prompts/soul.md?raw'
-
 import { DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT } from '../../constants/prompts/character-defaults'
 import { formatLive2DActPrompt } from '../../constants/prompts/live2d-act'
 import { documentSyncRepo } from '../../database/repos/document-sync.repo'
@@ -43,6 +41,7 @@ import { createAvatarModelReference } from '../../services/avatar-model'
 import { useAuthStore } from '../auth'
 import { useDisplayModelsStore } from '../display-models'
 import { useFeatureFlagsStore } from '../feature-flags'
+import { useLivestreamSettingsStore } from '../livestream-settings'
 import { useProviderConfigStore } from '../providers/config'
 import { useProviderStore } from '../providers/provider'
 import { useSettingsStageModel } from '../settings/stage-model'
@@ -104,7 +103,7 @@ function legacyDisplayModelIdOf(card: AiriCard): string | undefined {
 }
 
 /** Shared identity excludes stage controls, tools, and session-specific instructions. */
-function resolveIdentityPrompt(card: AiriCard | undefined): string {
+function resolveIdentityPrompt(card: AiriCard | undefined, soul: string): string {
   if (!card)
     return ''
 
@@ -122,6 +121,7 @@ function resolveIdentityPrompt(card: AiriCard | undefined): string {
 
 function resolveSystemPrompt(
   card: AiriCard | undefined,
+  soul: string,
   expressions: readonly Live2DExpressionControl[],
   motions: readonly Live2DMotionControl[],
 ): string {
@@ -129,7 +129,7 @@ function resolveSystemPrompt(
     return ''
 
   const systemPromptParts = [
-    resolveIdentityPrompt(card),
+    resolveIdentityPrompt(card, soul),
     card.extensions.airi.modules.artistry?.widgetInstruction,
     formatLive2DActPrompt(expressions, motions),
   ].filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
@@ -138,6 +138,7 @@ function resolveSystemPrompt(
 }
 
 export const useAiriCardStore = defineStore('airi-card', () => {
+  const livestreamSettings = useLivestreamSettingsStore()
   // A watcher or an await runs outside the setup of this store. The active
   // Pinia can then be another one, so keep the Pinia that owns this store.
   const pinia = getActivePinia()
@@ -1338,16 +1339,16 @@ export const useAiriCardStore = defineStore('airi-card', () => {
 
   /** Reads the same identity that ordinary chat uses, without its stage control instructions. */
   function getIdentityPrompt(characterId: string) {
-    return resolveIdentityPrompt(cards.value.get(characterId))
+    return resolveIdentityPrompt(cards.value.get(characterId), livestreamSettings.saved.config.soul)
   }
 
   function getSystemPrompt(characterId: string) {
     // Live2D controls are inspected only for the active Avatar Model. Another
     // Character gets its prompt without ACT controls until it becomes active.
     if (characterId === activeCardId.value)
-      return resolveSystemPrompt(cards.value.get(characterId), enabledLive2DExpressions.value, enabledLive2DMotions.value)
+      return resolveSystemPrompt(cards.value.get(characterId), livestreamSettings.saved.config.soul, enabledLive2DExpressions.value, enabledLive2DMotions.value)
 
-    return resolveSystemPrompt(cards.value.get(characterId), emptyLive2DExpressions, emptyLive2DMotions)
+    return resolveSystemPrompt(cards.value.get(characterId), livestreamSettings.saved.config.soul, emptyLive2DExpressions, emptyLive2DMotions)
   }
 
   async function applyActiveCardSettings(newCard = activeCard.value) {
@@ -1467,6 +1468,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     }),
     systemPrompt: computed(() => resolveSystemPrompt(
       activeCard.value,
+      livestreamSettings.saved.config.soul,
       enabledLive2DExpressions.value,
       enabledLive2DMotions.value,
     )),

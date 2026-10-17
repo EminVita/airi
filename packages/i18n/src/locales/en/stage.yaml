@@ -1,4 +1,35 @@
 livestream:
+  editor:
+    title: Livestream workspace
+    summary: Set the personality, broadcast rules, and episode brief. Rehearse with simulated comments.
+    open: Open livestream workspace
+    description: Prepare an episode before each broadcast. The character Soul and broadcast rules stay saved until you change them.
+    sections: Livestream configuration
+    episode: Episode
+    soul: Character Soul
+    rules: Broadcast rules
+    episode-help: Describe this episode, including story details, plot, timing, and facts to preserve.
+    soul-help: Set lasting personality and speech habits for all characters in chat and livestreams. Names and identities still come from each Character card.
+    rules-help: Set interaction, topic transitions, and content boundaries for every broadcast. Each generation also includes the writing skill.
+    import: Import Markdown
+    copy: Copy current Markdown
+    copied: Copied
+    copy-failed: Could not copy. Try again.
+    restore: Insert default content into editor
+    save: Save configuration
+    reload: Discard edits and reload saved content
+    unsaved: Unsaved changes
+    saved: Current content is saved
+    storage-help: Settings persist on this device without changing source Markdown. Chat uses the Soul on its next request. Broadcast changes apply at the next start. Copy each Markdown field for backup.
+    save-before-start: Save your configuration before starting.
+    saved-topic: 'Saved topic: {topic}'
+    no-topic: Not set
+    conflict: Another window saved new settings. Copy your edits, reload the saved version, then edit again.
+    invalid: Soul and rules cannot be empty. Each Markdown field allows 12000 characters. The topic title allows 200 characters.
+    save-failed: Could not save. Try again.
+    load-failed: 'Cannot read local settings. Defaults are displayed. The original record remains unchanged: {message}'
+    rehearsal: Rehearsal and broadcast controls
+    character: 'Current Character: {name}'
   title: Autonomous livestream
   description: I tell stories in the first person, respond to comments, and prepare my next sentence. Every request includes the episode brief and writing rules.
   direction: Main topic

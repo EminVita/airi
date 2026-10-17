@@ -4,19 +4,25 @@ import en from '@proj-airi/i18n/locales/en'
 
 import { defineInvokeHandler } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/broadcast-channel'
+import { createPinia, disposePinia } from 'pinia'
 import { afterEach, expect, it } from 'vitest'
 import { render } from 'vitest-browser-vue'
+import { userEvent } from 'vitest/browser'
 import { createI18n } from 'vue-i18n'
 
-import LivestreamControl from './livestream-control.vue'
+import LivestreamSettings from '../../livestream/livestream-settings.vue'
 
 import { Session } from '../../../../libs/livestream/session'
 import { livestreamCommand, livestreamRequestSnapshot, livestreamSnapshot } from '../../../../services/livestream'
+import { useLivestreamSettingsStore } from '../../../../stores/livestream-settings'
 
 const cleanups: (() => void)[] = []
 afterEach(() => cleanups.splice(0).reverse().forEach(cleanup => cleanup()))
 
 it('sends operator commands across the browser channel and displays host acknowledgements', async () => {
+  localStorage.clear()
+  const pinia = createPinia()
+  cleanups.push(() => disposePinia(pinia), () => localStorage.clear())
   const channel = new BroadcastChannel('proj-airi:livestream')
   const { context } = createContext(channel)
   cleanups.push(() => channel.close())
@@ -55,11 +61,10 @@ it('sends operator commands across the browser channel and displays host acknowl
     publish()
     return { accepted: true }
   }))
-  const screen = render(LivestreamControl, {
-    props: { characterId: 'character' },
-    global: { plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })] },
+  const screen = render(LivestreamSettings, {
+    props: { characterId: 'character', characterName: 'ReLU' },
+    global: { plugins: [pinia, createI18n({ legacy: false, locale: 'en', messages: { en } })] },
   })
-  await screen.getByRole('button', { name: /Autonomous livestream/ }).click()
   const start = screen.getByRole('button', { name: 'Start 30-minute text rehearsal', exact: true })
   await expect.element(start).toBeDisabled()
   await screen.getByRole('textbox', { name: 'Main topic', exact: true }).fill('Campus stories')
@@ -68,6 +73,23 @@ it('sends operator commands across the browser channel and displays host acknowl
   await expect.element(screen.getByRole('textbox', { name: /^Episode brief \(Markdown\)/ })).toHaveValue(expect.stringContaining('# 本场直播内容'))
   await expect.element(screen.getByRole('button', { name: 'Insert blank template', exact: true })).toBeDisabled()
   await screen.getByRole('textbox', { name: /^Episode brief \(Markdown\)/ }).fill('The roommate is called Lin.')
+  await userEvent.keyboard('{End}{Enter}I continue the story.')
+  await expect.element(screen.getByRole('textbox', { name: /^Episode brief \(Markdown\)/ })).toHaveValue('The roommate is called Lin.\nI continue the story.')
+  await screen.getByRole('textbox', { name: /^Episode brief \(Markdown\)/ }).fill('The roommate is called Lin.')
+  await expect.element(start).toBeDisabled()
+  await screen.getByRole('button', { name: 'Character Soul', exact: true }).click()
+  await screen.getByRole('textbox', { name: /^Character Soul/ }).fill('I speak in the first person.')
+  await screen.getByRole('button', { name: 'Broadcast rules', exact: true }).click()
+  await screen.getByRole('textbox', { name: /^Broadcast rules/ }).fill('I finish each sentence before replying.')
+  await screen.getByRole('button', { name: 'Episode', exact: true }).click()
+  await expect.element(screen.getByRole('textbox', { name: /^Episode brief \(Markdown\)/ })).toHaveValue('The roommate is called Lin.')
+  await screen.getByRole('button', { name: 'Save configuration', exact: true }).click()
+  expect(useLivestreamSettingsStore(pinia).saved.config).toEqual({
+    direction: 'Campus stories',
+    details: 'The roommate is called Lin.',
+    soul: 'I speak in the first person.',
+    rules: 'I finish each sentence before replying.',
+  })
   await expect.element(start).toBeEnabled()
   await start.click()
   await expect.element(screen.getByRole('button', { name: 'Pause livestream', exact: true })).toBeVisible()

@@ -1,17 +1,15 @@
 <script setup lang="ts">
-import type { Settings } from '../../../../libs/livestream/session'
-
 import { errorMessageFrom } from '@moeru/std'
-import { Button, FieldInput, FieldTextArea } from '@proj-airi/ui'
+import { Button, FieldInput } from '@proj-airi/ui'
 import { useFileDialog } from '@vueuse/core'
 import { shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import episodeTemplate from '../../../../libs/livestream/prompts/episode-template.md?raw'
+import LivestreamMarkdown from '../../livestream/livestream-markdown.vue'
 
 const direction = defineModel<string>('direction', { required: true })
 const details = defineModel<string>('details', { required: true })
-const mode = defineModel<Settings['mode']>('mode', { required: true })
 const { t } = useI18n()
 const error = shallowRef('')
 const dialog = useFileDialog({ accept: '.md,text/markdown,text/plain', multiple: false, reset: true })
@@ -36,19 +34,8 @@ dialog.onChange(async (files) => {
 
 <template>
   <div :class="['flex flex-col gap-3']">
-    <div role="group" :aria-label="t('stage.livestream.mode')" :class="['flex flex-wrap gap-2']">
-      <Button size="sm" :aria-pressed="mode === 'text'" @click="mode = 'text'">
-        {{ t('stage.livestream.text-mode') }}
-      </Button>
-      <Button size="sm" :aria-pressed="mode === 'speech'" @click="mode = 'speech'">
-        {{ t('stage.livestream.speech-mode') }}
-      </Button>
-    </div>
-    <p v-if="mode === 'text'" :class="['text-xs text-neutral-500 dark:text-neutral-400']">
-      {{ t('stage.livestream.text-description') }}
-    </p>
     <FieldInput v-model="direction" :label="t('stage.livestream.direction')" :placeholder="t('stage.livestream.direction-placeholder')" />
-    <FieldTextArea v-model="details" :label="t('stage.livestream.details')" :description="t('stage.livestream.brief-help')" :placeholder="t('stage.livestream.details-placeholder')" :rows="8" :required="mode === 'text'" />
+    <LivestreamMarkdown v-model="details" :label="t('stage.livestream.details')" :description="t('stage.livestream.brief-help')" :placeholder="t('stage.livestream.details-placeholder')" />
     <div :class="['flex flex-wrap gap-2']">
       <Button size="sm" @click="dialog.open()">
         {{ t('stage.livestream.import-brief') }}

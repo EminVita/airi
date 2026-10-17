@@ -452,7 +452,7 @@ defineExpose({
           ]"
         >
           <ChatBackgroundTasks :tasks="backgroundTasks" @stop="task => chatStore.stopBackgroundTask(task.sessionId)" @dismiss="task => chatStore.dismissBackgroundTask(task.sessionId)" />
-          <LivestreamControl :character-id="activeCardId" />
+          <LivestreamControl :character-id="activeCardId" @configure="route => openSettings({ route })" />
           <div ref="voice-attachment" :class="['px-2 pt-1 empty:hidden']" />
           <!-- Journal Preview Chips -->
           <div v-if="latestImageEntries.length > 0" class="flex gap-2 overflow-x-auto px-2 py-1 scrollbar-none">

@@ -104,7 +104,12 @@ Ordinary chat and proactive notifications use that identity with their existing 
 The livestream reads the same identity through `getIdentityPrompt`, without stage controls or artistry tool instructions.
 It adds `libs/livestream/prompts/livestream-rules.md` and the complete writing skill to each system prompt.
 The episode stays in `settings.details` in user context. It can assign a temporary story role, not overwrite permanent identity.
-The interface imports the episode as text. Soul and livestream rules are build assets and require a rebuild after changes.
+The workspace at `/settings/livestream` edits all three inputs. Markdown files supply defaults, while explicit saves create local overrides.
+`stores/livestream-settings.ts` validates and persists one versioned snapshot through a leader-owned synchronized action.
+Editors keep drafts outside synchronized state. A stale revision cannot overwrite a newer save from another window.
+Persistence completes before the live snapshot changes. Storage failures leave the saved configuration intact.
+Ordinary chat reads saved Soul edits on its next request. The host freezes identity and rules at broadcast start.
+Closing the settings window does not stop the Stage-owned broadcast. Source defaults still require a rebuild after edits.
 Standalone integrations have separate prompt ownership. They do not load the Stage UI Soul.
 
 The content decision comes from the same model request. It is not an independent moderation guarantee.

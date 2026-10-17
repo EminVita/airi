@@ -22,6 +22,12 @@ Keep application-specific pages in the owning application. Put reusable business
 
 Put primitive UI components in `@proj-airi/ui`. Put shared layouts in `@proj-airi/stage-layouts`.
 
+## Livestream settings
+
+`/settings/livestream` opens the livestream workspace. Operators edit the shared Soul, broadcast rules, and episode brief, then save locally.
+The page reuses Stage UI controls for text rehearsal, manual comments, pause, and stop. It guards navigation with unsaved drafts.
+Its route metadata adds the page to the desktop and web settings lists.
+
 ## Provider settings
 
 The active chat and vision provider routes live under `/settings/providers`. They use `ProviderGenerationSettings` from stage-ui to render protocol and native search options from the provider catalog. The V2 editor is a separate consumer and does not replace these routes.

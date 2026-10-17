@@ -10,11 +10,12 @@ import { safeParse } from 'valibot'
 import { onScopeDispose, shallowRef, watch } from 'vue'
 
 import { MockComments } from '../libs/livestream/mock-comments'
-import { createPlannerProvider, plannerInstructions } from '../libs/livestream/prompt'
+import { createPlannerInstructions, createPlannerProvider } from '../libs/livestream/prompt'
 import { readingDuration } from '../libs/livestream/rehearsal'
 import { batchSchema, parsePlan, Session } from '../libs/livestream/session'
 import { commandSchema, getLivestreamContext, livestreamBatch, livestreamCommand, livestreamRequestSnapshot, livestreamSnapshot } from '../services/livestream'
 import { useLLM } from '../stores/ai/chat-llm/llm'
+import { useLivestreamSettingsStore } from '../stores/livestream-settings'
 import { useAiriCardStore } from '../stores/modules/airi-card'
 import { useProviderStore } from '../stores/providers/provider'
 import { useVoiceStore } from '../stores/voice'
@@ -25,6 +26,7 @@ import { useVoiceStore } from '../stores/voice'
  */
 export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: string) => Promise<SpeechOutput>) {
   const cards = useAiriCardStore()
+  const settings = useLivestreamSettingsStore()
   const providers = useProviderStore()
   const llm = useLLM()
   const voice = useVoiceStore()
@@ -33,6 +35,7 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
   const running = shallowRef(false)
   const speechRunning = shallowRef(false)
   let characterId = ''
+  let instructions = ''
   let disposed = false
   let commandRevision = 0
   let generation: AbortController | undefined
@@ -117,7 +120,7 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
       const provider = createPlannerProvider(await providers.getChatProviderInstance(selection.provider), selection.provider)
       signal.throwIfAborted()
       const conversation: Conversation = { turns: [
-        { id: 'livestream-rules', type: 'system', authority: 'system', content: [{ type: 'text', text: [cards.getIdentityPrompt(characterId), plannerInstructions].join('\n\n') }] },
+        { id: 'livestream-rules', type: 'system', authority: 'system', content: [{ type: 'text', text: instructions }] },
         { id: 'livestream-state', type: 'user', content: [{ type: 'text', text: JSON.stringify({
           ...work.context,
           history: work.context.history.slice(-8),
@@ -296,6 +299,8 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
         if (disposed || revision !== commandRevision || command.characterId !== cards.activeCardId || voice.activeTurns.length > 0)
           return { accepted: false }
         characterId = command.characterId
+        // Freeze long-term instructions for this broadcast. Saved edits apply to the next broadcast.
+        instructions = [cards.getIdentityPrompt(characterId), createPlannerInstructions(settings.saved.config.rules)].join('\n\n')
         session.start(nanoid(), command.settings, Date.now())
         if (command.settings.mode === 'text')
           startClock()

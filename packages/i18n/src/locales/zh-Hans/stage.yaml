@@ -1,4 +1,35 @@
 livestream:
+  editor:
+    title: 直播工作台
+    summary: 设置人设、直播规则和本场主题，排练并接收模拟弹幕
+    open: 打开直播工作台
+    description: 每次开播前，我只需要准备本场主题。角色 Soul 和直播规则会一直沿用，除非我主动修改。
+    sections: 直播配置
+    episode: 本场主题
+    soul: 角色 Soul
+    rules: 直播规则
+    episode-help: 我在这里填写本场的详细内容，包括故事设定、情节、时间安排，以及哪些细节必须保留。
+    soul-help: 我在这里设定长期性格和说话习惯。它会参与所有角色的普通聊天和直播，名字与身份仍使用各自的角色卡。
+    rules-help: 我在这里规定每场直播的互动方式、话题衔接和内容边界。“好好说话”规范仍会在每次生成时自动加入。
+    import: 导入 Markdown
+    copy: 复制当前 Markdown
+    copied: 已复制
+    copy-failed: 复制失败，请重试。
+    restore: 将默认内容填入编辑框
+    save: 保存配置
+    reload: 放弃修改，读取已保存内容
+    unsaved: 有修改尚未保存
+    saved: 当前内容已保存
+    storage-help: 配置保存在这台设备，重启后保留，不会改写源码里的 MD。普通聊天在下次生成时使用新的 Soul，直播在下次开播时使用新设定。备份时，我可以逐项复制 Markdown。
+    save-before-start: 请先保存配置，再开始排练。
+    saved-topic: '已保存的主题：{topic}'
+    no-topic: 尚未填写
+    conflict: 配置已在另一个窗口更新。我可以先复制当前内容，再读取已保存版本后修改。
+    invalid: Soul 和直播规则不能为空，每项 Markdown 最多 12000 字符，主题标题最多 200 字符。
+    save-failed: 保存失败，请重试。
+    load-failed: '无法读取本机配置，正在显示默认内容。原记录尚未覆盖：{message}'
+    rehearsal: 排练与直播控制
+    character: '当前角色：{name}'
   title: 自主直播
   description: 我会用第一人称讲故事、接弹幕，边讲边准备下一句。每次生成都会读取本场内容和“好好说话”规则。
   direction: 直播主线

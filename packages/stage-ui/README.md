@@ -4,15 +4,19 @@ Shared core for stage
 
 ## Autonomous livestream
 
-The desktop chat composer contains an optional **Autonomous livestream** panel.
+**Settings → Livestream workspace** edits the shared Soul, broadcast rules, and episode brief.
+The desktop chat composer also contains an **Autonomous livestream** panel with a workspace shortcut.
 The default mode is a 30-minute text rehearsal. It needs a chat provider and an episode brief.
-Import or paste Markdown before starting. Enter a viewer name and comment to simulate audience participation.
+Import or paste Markdown, then save before starting. Enter a viewer name and comment to simulate audience participation.
 The rehearsal shows sentences in real time and makes no speech requests. Pauses stop its clock.
 Copy and save the Markdown transcript before starting another session or closing the Stage.
 See [the rehearsal guide and Markdown inputs](../../docs/livestream/README.md).
 
 Maintain three inputs: `constants/prompts/soul.md`, `libs/livestream/prompts/livestream-rules.md`, and the imported episode brief.
 The first two remain stable between broadcasts. Only the episode brief changes for each broadcast.
+The files supply defaults. The workspace saves local overrides without changing source files or requiring a rebuild.
+Saved edits persist across restarts. Copy each Markdown field for a file backup or a Git commit.
+Chat uses saved Soul edits on its next request. Each broadcast keeps the identity and rules selected at its start.
 The character store combines its identity fields with Soul for ordinary chat, proactive notifications, and livestreams.
 Livestreams read that identity without stage controls, then add their rules and the writing skill.
 The episode can specify a temporary literary role without changing the character card or Soul.

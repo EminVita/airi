@@ -20,6 +20,7 @@ import livestreamRules from '../libs/livestream/prompts/livestream-rules.md?raw'
 
 import { getLivestreamContext, livestreamCommand, livestreamSnapshot } from '../services/livestream'
 import { useLLM } from '../stores/ai/chat-llm/llm'
+import { useLivestreamSettingsStore } from '../stores/livestream-settings'
 import { useAiriCardStore } from '../stores/modules/airi-card'
 import { useProviderStore } from '../stores/providers/provider'
 import { useLivestreamHost } from './use-livestream-host'
@@ -121,6 +122,12 @@ it('runs a complete 30-minute text rehearsal, accepts manual viewers, pauses its
   const callsBeforePause = requestCount
   const checkpoint = state!.checkpoint
   expect(state?.transcript.filter(entry => entry.kind === 'host').every(entry => entry.completed)).toBe(true)
+  const settings = useLivestreamSettingsStore(pinia)
+  await settings.save({ ...settings.saved.config, soul: `${soul}\nI prefer short questions.`, rules: `${livestreamRules}\nKeep each reply brief.` }, settings.saved.revision)
+  const nextIdentity = cards!.getIdentityPrompt('default')
+  expect(nextIdentity).toContain('I prefer short questions.')
+  expect(cards!.getSystemPrompt('default')).toContain(nextIdentity)
+  expect(cards!.getSystemPrompt('default')).not.toContain('Keep each reply brief.')
   await vi.advanceTimersByTimeAsync(600_000)
   expect(state?.elapsedMs).toBe(elapsed)
   expect(requestCount).toBe(callsBeforePause)
@@ -138,6 +145,7 @@ it('runs a complete 30-minute text rehearsal, accepts manual viewers, pauses its
   expect(systemPrompts.every(value => value.includes(speakingSkill))).toBe(true)
   expect(systemPrompts.every(value => value.startsWith(identity))).toBe(true)
   expect(systemPrompts.every(value => value.includes(livestreamRules))).toBe(true)
+  expect(systemPrompts.every(value => !value.includes('I prefer short questions.') && !value.includes('Keep each reply brief.'))).toBe(true)
   expect(Math.min(...remainingTimes)).toBeLessThan(30_000)
   const finishedCalls = requestCount
   await vi.advanceTimersByTimeAsync(60_000)
@@ -148,9 +156,9 @@ it('runs a complete 30-minute text rehearsal, accepts manual viewers, pauses its
   await vi.advanceTimersByTimeAsync(15_000)
   expect(briefs.slice(finishedCalls).length).toBeGreaterThan(0)
   expect(briefs.slice(finishedCalls).every(value => value === nextBrief)).toBe(true)
-  expect(systemPrompts.slice(finishedCalls).every(value => value.startsWith(identity))).toBe(true)
-  expect(cards!.getSystemPrompt('default')).toBe(ordinaryPrompt)
-  expect(cards!.getIdentityPrompt('default')).toBe(identity)
+  expect(systemPrompts.slice(finishedCalls).every(value => value.startsWith(nextIdentity) && value.includes('Keep each reply brief.'))).toBe(true)
+  expect(cards!.getSystemPrompt('default')).toContain(nextIdentity)
+  expect(cards!.getIdentityPrompt('default')).toBe(nextIdentity)
   expect(openOutput).not.toHaveBeenCalled()
   await invoke({ type: 'stop', sessionId: state!.sessionId })
 }, 30_000)
