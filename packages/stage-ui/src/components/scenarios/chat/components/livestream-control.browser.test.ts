@@ -1,0 +1,85 @@
+import type { LivestreamCommand } from '../../../../services/livestream'
+
+import en from '@proj-airi/i18n/locales/en'
+
+import { defineInvokeHandler } from '@moeru/eventa'
+import { createContext } from '@moeru/eventa/adapters/broadcast-channel'
+import { afterEach, expect, it } from 'vitest'
+import { render } from 'vitest-browser-vue'
+import { createI18n } from 'vue-i18n'
+
+import LivestreamControl from './livestream-control.vue'
+
+import { Session } from '../../../../libs/livestream/session'
+import { livestreamCommand, livestreamRequestSnapshot, livestreamSnapshot } from '../../../../services/livestream'
+
+const cleanups: (() => void)[] = []
+afterEach(() => cleanups.splice(0).reverse().forEach(cleanup => cleanup()))
+
+it('sends operator commands across the browser channel and displays host acknowledgements', async () => {
+  const channel = new BroadcastChannel('proj-airi:livestream')
+  const { context } = createContext(channel)
+  cleanups.push(() => channel.close())
+  const session = new Session()
+  const received: LivestreamCommand[] = []
+  let mockEnabled = false
+  function publish() {
+    context.emit(livestreamSnapshot, { connected: true, state: session.snapshot(), mockEnabled })
+  }
+  cleanups.push(context.on(livestreamRequestSnapshot, publish))
+  cleanups.push(defineInvokeHandler(context, livestreamCommand, (command) => {
+    received.push(command)
+    switch (command.type) {
+      case 'start':
+        session.start('broadcast', command.settings, Date.now())
+        break
+      case 'pause':
+        session.pause()
+        break
+      case 'resume':
+        session.resume()
+        break
+      case 'stop':
+        session.stop()
+        break
+      case 'redirect':
+        session.redirect(command.direction)
+        break
+      case 'mock':
+        mockEnabled = command.enabled
+        break
+    }
+    publish()
+    return { accepted: true }
+  }))
+  const screen = render(LivestreamControl, {
+    props: { characterId: 'character' },
+    global: { plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })] },
+  })
+  await screen.getByRole('button', { name: /Autonomous livestream/ }).click()
+  const start = screen.getByRole('button', { name: 'Start livestream', exact: true })
+  await expect.element(start).toBeDisabled()
+  await screen.getByRole('textbox', { name: 'Main topic', exact: true }).fill('Campus stories')
+  await screen.getByRole('textbox', { name: 'Story details to preserve', exact: true }).fill('The roommate is called Lin.')
+  await expect.element(start).toBeEnabled()
+  await start.click()
+  await expect.element(screen.getByRole('button', { name: 'Pause livestream', exact: true })).toBeVisible()
+  expect(received[0]).toEqual({ type: 'start', characterId: 'character', settings: { direction: 'Campus stories', details: 'The roommate is called Lin.' } })
+
+  await screen.getByRole('button', { name: 'Send sample comments', exact: true }).click()
+  await expect.poll(() => received.some(command => command.type === 'sample' && command.samples.length === 16)).toBe(true)
+  await screen.getByRole('button', { name: 'Start random comments', exact: true }).click()
+  await expect.element(screen.getByRole('button', { name: 'Stop random comments', exact: true })).toHaveAttribute('aria-pressed', 'true')
+
+  await screen.getByRole('textbox', { name: 'Change direction', exact: true }).fill('Cafeteria stories')
+  await screen.getByRole('button', { name: 'Apply direction', exact: true }).click()
+  await expect.poll(() => session.snapshot().settings.direction).toBe('Cafeteria stories')
+  await screen.getByRole('button', { name: 'Pause livestream', exact: true }).click()
+  await expect.element(screen.getByRole('button', { name: 'Resume livestream', exact: true })).toBeVisible()
+  await expect.element(screen.getByRole('button', { name: 'Send sample comments', exact: true })).toBeDisabled()
+  await screen.getByRole('button', { name: 'Resume livestream', exact: true }).click()
+  await expect.element(screen.getByRole('button', { name: 'Pause livestream', exact: true })).toBeVisible()
+  await screen.getByRole('button', { name: 'Stop immediately', exact: true }).click()
+  await expect.element(start).toBeVisible()
+  expect(received.filter(command => command.type !== 'start').every(command => command.sessionId === 'broadcast')).toBe(true)
+})

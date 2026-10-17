@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { TurnRef } from '@proj-airi/core-agent'
 import type { Live2DLipSync, Live2DLipSyncOptions } from '@proj-airi/model-driver-lipsync'
 import type { Profile } from '@proj-airi/model-driver-lipsync/shared/wlipsync'
 import type { CaptionChannelEvent, PresenceBubbleState } from '@proj-airi/stage-shared'
@@ -31,6 +32,7 @@ import { computed, nextTick, onUnmounted, ref, shallowRef, watch } from 'vue'
 import StageAvatarModelMissing from './stage-avatar-model-missing.vue'
 import StageRenderError from './stage-render-error.vue'
 
+import { useLivestreamHost } from '../../composables/use-livestream-host'
 // import { useDuckDb } from '../../composables/use-duck-db'
 import { Emotion, EMOTION_EmotionMotionName_value, EMOTION_VRMExpressionName_value, EmotionThinkMotionName } from '../../constants/emotions'
 import { live2dMotionMagicProfiles, useLive2DMotionMagic, useLive2DMotionMagicSettings } from '../../features/motions/live2d'
@@ -427,7 +429,7 @@ watch(() => voice.activeTurns, (turns) => {
 })
 
 const cards = useAiriCardStore()
-const disconnectVoiceOutput = voice.connectOutput((turn) => {
+function createVoiceOutput(turn: TurnRef, characterId: string) {
   const output = {
     playback,
     onSpecial: (special: string) => void playSpecialToken(special, { turnId: turn.turnId }),
@@ -446,14 +448,16 @@ const disconnectVoiceOutput = voice.connectOutput((turn) => {
     },
     onPlaybackEnd: () => {
       playingCount -= 1
-      if (playingCount === 0)
+      if (playingCount === 0) {
         resetSpeakingState()
+        if (voice.activeTurns.length === 0)
+          speechVoicing.value = false
+      }
     },
   }
   if (speechMuted.value)
     return { ...output, synthesize: async () => null }
   try {
-    const characterId = chatSession.sessionMetas[turn.sessionId]?.characterId
     if (!characterId)
       throw new Error('The response session has no character')
     return speechStore.createOutput(turn, cards.getModules(characterId).speech, output, audioContext)
@@ -462,6 +466,22 @@ const disconnectVoiceOutput = voice.connectOutput((turn) => {
     // Text replies remain available when optional speech output is not configured.
     console.error('Speech output is unavailable', error)
     return { ...output, synthesize: async () => null }
+  }
+}
+const disconnectVoiceOutput = voice.connectOutput(turn => createVoiceOutput(turn, chatSession.sessionMetas[turn.sessionId]?.characterId ?? ''))
+const livestream = useLivestreamHost(async (turn, characterId) => {
+  if (speechMuted.value || !speechStore.configured)
+    throw new Error('Unmute speech and configure a voice before starting the livestream')
+  setupAnalyser()
+  await setupLipSync()
+  const output = createVoiceOutput(turn, characterId)
+  return {
+    ...output,
+    onPlaybackStart: (clip) => {
+      // Each broadcast sentence replaces the caption instead of accumulating an unbounded response.
+      resetAssistantSpeechSurface('livestream')
+      output.onPlaybackStart?.(clip)
+    },
   }
 })
 
@@ -548,6 +568,7 @@ function setupAnalyser() {
 
 watch(speechMuted, (muted) => {
   if (muted) {
+    void livestream.pause()
     for (const turn of voice.activeTurns)
       voice.getSpeech(turn)?.cancel('Speech muted')
   }
@@ -561,6 +582,7 @@ function holdsVoice(context: { speaks?: boolean }) {
 chatHookCleanups.push(onBeforeMessageComposed(async (_message, context) => {
   if (!holdsVoice(context))
     return
+  await livestream.pause()
   voice.startResponse(context)
   if (context.sessionId === chatSession.activeSessionId)
     resetAssistantSpeechSurface('new-message')

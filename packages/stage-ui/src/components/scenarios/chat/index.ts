@@ -4,6 +4,7 @@ export { default as ChatBackgroundTasks } from './components/background-tasks.vu
 export { default as ChatErrorItem } from './components/error-item.vue'
 export { default as ChatHistory } from './components/history.vue'
 export { default as ChatImageAttachmentPreview } from './components/image-attachment-preview.vue'
+export { default as LivestreamControl } from './components/livestream-control.vue'
 export { default as ChatProviderSetupCallout } from './components/provider-setup-callout.vue'
 export { default as ChatReplyPreview } from './components/reply-preview.vue'
 export { default as ChatSendButton } from './components/send-button.vue'

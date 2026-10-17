@@ -2,6 +2,20 @@
 
 Shared core for stage
 
+## Autonomous livestream
+
+The desktop chat composer contains an optional **Autonomous livestream** panel.
+Set the character's chat provider, speech provider, and voice before starting.
+Enter a main topic and story details. Select **Start livestream** to generate and speak without user messages.
+Use **Send sample comments** or **Start random comments** to test audience events.
+Use **Pause livestream**, **Resume livestream**, or **Stop immediately** to control output.
+**Apply direction** changes the main topic after the current sentence finishes.
+
+The Stage prepares one sentence ahead and reuses its existing speech and lip-sync output.
+This loop supports sentence synthesis, including MiniMax. It does not support speech providers that only stream bidirectional audio.
+Ordinary chat does not require this panel. This feature does not collect Douyin comments or control OBS.
+See [the livestream ADR](../../docs/ai/adr/2026-10-17-autonomous-livestream.md) for event integration, scheduling, limits, and metrics.
+
 ## Experimental features
 
 Register flags in `libs/feature-flags.ts`. Read their state through `useFeatureFlagsStore().isEnabled(key)`.
