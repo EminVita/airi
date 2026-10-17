@@ -26,6 +26,8 @@ import { computed, ref, shallowRef, toRaw, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { toast } from 'vue-sonner'
 
+import soul from '../../constants/prompts/soul.md?raw'
+
 import { DEFAULT_ARTISTRY_WIDGET_SPAWNING_PROMPT } from '../../constants/prompts/character-defaults'
 import { formatLive2DActPrompt } from '../../constants/prompts/live2d-act'
 import { documentSyncRepo } from '../../database/repos/document-sync.repo'
@@ -101,6 +103,23 @@ function legacyDisplayModelIdOf(card: AiriCard): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined
 }
 
+/** Shared identity excludes stage controls, tools, and session-specific instructions. */
+function resolveIdentityPrompt(card: AiriCard | undefined): string {
+  if (!card)
+    return ''
+
+  // Position-sensitive CCv3 fields are deliberately excluded until provider
+  // message assembly owns their ordering and role semantics.
+  return [
+    `Character name: ${card.name}`,
+    card.systemPrompt,
+    card.description,
+    card.personality,
+    card.scenario,
+    soul,
+  ].filter((part): part is string => typeof part === 'string' && part.trim().length > 0).join('\n\n')
+}
+
 function resolveSystemPrompt(
   card: AiriCard | undefined,
   expressions: readonly Live2DExpressionControl[],
@@ -109,13 +128,8 @@ function resolveSystemPrompt(
   if (!card)
     return ''
 
-  // Position-sensitive CCv3 fields are deliberately excluded until provider
-  // message assembly owns their ordering and role semantics.
   const systemPromptParts = [
-    card.systemPrompt,
-    card.description,
-    card.personality,
-    card.scenario,
+    resolveIdentityPrompt(card),
     card.extensions.airi.modules.artistry?.widgetInstruction,
     formatLive2DActPrompt(expressions, motions),
   ].filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
@@ -1322,6 +1336,11 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     return resolved
   }
 
+  /** Reads the same identity that ordinary chat uses, without its stage control instructions. */
+  function getIdentityPrompt(characterId: string) {
+    return resolveIdentityPrompt(cards.value.get(characterId))
+  }
+
   function getSystemPrompt(characterId: string) {
     // Live2D controls are inspected only for the active Avatar Model. Another
     // Character gets its prompt without ACT controls until it becomes active.
@@ -1412,6 +1431,7 @@ export const useAiriCardStore = defineStore('airi-card', () => {
     selectActiveCardVisionProvider,
     getCard,
     getModules,
+    getIdentityPrompt,
     getSystemPrompt,
     resetState,
     selectAvatarModel,

@@ -14,7 +14,9 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { createApp } from 'vue'
 import { createI18n } from 'vue-i18n'
 
+import soul from '../constants/prompts/soul.md?raw'
 import speakingSkill from '../libs/livestream/prompts/haohao-shuohua/skill.md?raw'
+import livestreamRules from '../libs/livestream/prompts/livestream-rules.md?raw'
 
 import { getLivestreamContext, livestreamCommand, livestreamSnapshot } from '../services/livestream'
 import { useLLM } from '../stores/ai/chat-llm/llm'
@@ -93,6 +95,11 @@ it('runs a complete 30-minute text rehearsal, accepts manual viewers, pauses its
   cleanups.push(() => app.unmount())
   await initialized
   await cards!.updateActiveCardConsciousness({ provider: 'openai-compatible', model: 'test' })
+  const identity = cards!.getIdentityPrompt('default')
+  const ordinaryPrompt = cards!.getSystemPrompt('default')
+  expect(identity).toContain(soul)
+  expect(ordinaryPrompt).toContain(identity)
+  expect(ordinaryPrompt).not.toContain(livestreamRules)
   const context = getLivestreamContext()
   let state: Snapshot | undefined
   cleanups.push(context.on(livestreamSnapshot, ({ body }) => {
@@ -129,10 +136,23 @@ it('runs a complete 30-minute text rehearsal, accepts manual viewers, pauses its
   expect(openOutput).not.toHaveBeenCalled()
   expect(briefs.every(value => value === brief)).toBe(true)
   expect(systemPrompts.every(value => value.includes(speakingSkill))).toBe(true)
+  expect(systemPrompts.every(value => value.startsWith(identity))).toBe(true)
+  expect(systemPrompts.every(value => value.includes(livestreamRules))).toBe(true)
   expect(Math.min(...remainingTimes)).toBeLessThan(30_000)
   const finishedCalls = requestCount
   await vi.advanceTimersByTimeAsync(60_000)
   expect(requestCount).toBe(finishedCalls)
+
+  const nextBrief = '# 林冲风雪山神庙\n我本场扮演林冲，讲到离开山神庙为止。'
+  await invoke({ type: 'start', characterId: 'default', settings: { direction: '林冲风雪山神庙', details: nextBrief, mode: 'text' } })
+  await vi.advanceTimersByTimeAsync(15_000)
+  expect(briefs.slice(finishedCalls).length).toBeGreaterThan(0)
+  expect(briefs.slice(finishedCalls).every(value => value === nextBrief)).toBe(true)
+  expect(systemPrompts.slice(finishedCalls).every(value => value.startsWith(identity))).toBe(true)
+  expect(cards!.getSystemPrompt('default')).toBe(ordinaryPrompt)
+  expect(cards!.getIdentityPrompt('default')).toBe(identity)
+  expect(openOutput).not.toHaveBeenCalled()
+  await invoke({ type: 'stop', sessionId: state!.sessionId })
 }, 30_000)
 
 function sentence(text: string): Plan {

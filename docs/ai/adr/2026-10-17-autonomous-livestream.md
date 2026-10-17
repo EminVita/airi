@@ -87,12 +87,25 @@ The manual comment command accepts a nickname and text. It emits the same batch 
 
 ## Content and failure policy
 
-The planner writes original fiction and preserves operator details. It excludes politics, history, and promotion of illegal conduct or bullying.
+The planner preserves operator details in original fiction or a named literary work.
+It excludes political and historical debate and promotion of illegal conduct or bullying.
+An operator can request classical literature. The retelling preserves the supplied plot and excludes graphic violence and real-world political commentary.
 The character narrates in the first person with conversational Mandarin. It takes the protagonist's role while preserving supplied names and details.
 The opening establishes the fictional role once. Later sentences avoid repeated disclaimers, formal narration, and excessive filler words.
 It allows mild teasing, reflection after mistakes, and stories that oppose bullying.
 Audience messages are conversation data. They cannot change system rules or execute commands.
 The model uses supplied material and existing knowledge. It must acknowledge uncertainty about factual claims.
+
+## Prompt ownership
+
+The operator maintains three Markdown inputs: a stable Soul, stable livestream rules, and a brief for each episode.
+`constants/prompts/soul.md` joins the character card identity in the existing card store.
+Ordinary chat and proactive notifications use that identity with their existing task instructions.
+The livestream reads the same identity through `getIdentityPrompt`, without stage controls or artistry tool instructions.
+It adds `libs/livestream/prompts/livestream-rules.md` and the complete writing skill to each system prompt.
+The episode stays in `settings.details` in user context. It can assign a temporary story role, not overwrite permanent identity.
+The interface imports the episode as text. Soul and livestream rules are build assets and require a rebuild after changes.
+Standalone integrations have separate prompt ownership. They do not load the Stage UI Soul.
 
 The content decision comes from the same model request. It is not an independent moderation guarantee.
 Each preparation has a 45-second deadline. Failures retry after two seconds and pause after three consecutive failures.

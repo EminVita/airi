@@ -4,6 +4,8 @@ import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { toRaw } from 'vue'
 
+import soul from '../../constants/prompts/soul.md?raw'
+
 import { splitCard } from '../../libs/character-card-sync'
 import { useDisplayModelsStore } from '../display-models'
 import { useProviderStore } from '../providers/provider'
@@ -961,12 +963,20 @@ describe('airi-card store', () => {
     await cardStore.activateCard(cardId)
 
     expect(cardStore.systemPrompt).toBe([
+      'Character name: Runtime context card',
       'Follow the character rules.',
       'A patient field researcher.',
       'Curious and precise.',
       'The conversation takes place in an observatory.',
+      soul,
       'Use the image widget for star charts.',
     ].join('\n\n'))
+    expect(cardStore.getIdentityPrompt(cardId)).toContain('Follow the character rules.')
+    expect(cardStore.getIdentityPrompt(cardId)).toContain(soul)
+    expect(cardStore.getIdentityPrompt(cardId)).not.toContain('Use the image widget')
+    expect(cardStore.getSystemPrompt(cardId)).toContain(cardStore.getIdentityPrompt(cardId))
+    expect(cardStore.getIdentityPrompt('default')).not.toContain('A patient field researcher.')
+    expect(cardStore.getIdentityPrompt('missing')).toBe('')
     expect(cardStore.systemPrompt).not.toContain('Answer the latest observation')
     expect(cardStore.systemPrompt).not.toContain('Welcome to the observatory')
     expect(cardStore.systemPrompt).not.toContain('What did you find?')
@@ -997,6 +1007,7 @@ describe('airi-card store', () => {
     expect(cardStore.systemPrompt).toContain('<|ACT {"expression":null}|>')
     expect(cardStore.systemPrompt).not.toContain('"05_Angry"')
     expect(cardStore.systemPrompt).not.toContain('"motions/哭哭.motion3.json"')
+    expect(cardStore.getIdentityPrompt('default')).not.toContain('<|ACT')
   })
 
   it('falls back to the default card when the active custom card is deleted', async () => {

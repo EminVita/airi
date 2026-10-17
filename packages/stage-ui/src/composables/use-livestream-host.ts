@@ -117,11 +117,10 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
       const provider = createPlannerProvider(await providers.getChatProviderInstance(selection.provider), selection.provider)
       signal.throwIfAborted()
       const conversation: Conversation = { turns: [
-        { id: 'livestream-rules', type: 'system', authority: 'system', content: [{ type: 'text', text: plannerInstructions }] },
+        { id: 'livestream-rules', type: 'system', authority: 'system', content: [{ type: 'text', text: [cards.getIdentityPrompt(characterId), plannerInstructions].join('\n\n') }] },
         { id: 'livestream-state', type: 'user', content: [{ type: 'text', text: JSON.stringify({
           ...work.context,
           history: work.context.history.slice(-8),
-          character: { name: cards.activeCard?.name, description: cards.activeCard?.description, personality: cards.activeCard?.personality },
           comments: work.comments.map(comment => ({ key: comment.key, nickname: comment.nickname, text: comment.text, ageMs: Date.now() - comment.receivedAt })),
         }) }] },
       ] }

@@ -11,6 +11,12 @@ The rehearsal shows sentences in real time and makes no speech requests. Pauses 
 Copy and save the Markdown transcript before starting another session or closing the Stage.
 See [the rehearsal guide and Markdown inputs](../../docs/livestream/README.md).
 
+Maintain three inputs: `constants/prompts/soul.md`, `libs/livestream/prompts/livestream-rules.md`, and the imported episode brief.
+The first two remain stable between broadcasts. Only the episode brief changes for each broadcast.
+The character store combines its identity fields with Soul for ordinary chat, proactive notifications, and livestreams.
+Livestreams read that identity without stage controls, then add their rules and the writing skill.
+The episode can specify a temporary literary role without changing the character card or Soul.
+
 For voice mode, set the character's chat provider, speech provider, and voice before starting.
 Enter a main topic and story details. Select **Start livestream** to generate and speak without user messages.
 Use **Send sample comments** or **Start random comments** to test audience events.
