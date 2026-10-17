@@ -1,9 +1,9 @@
 livestream:
   title: Autonomous livestream
-  description: I tell stories in the first person, respond to comments, and prepare my next sentence while speaking. I use your current chat and speech providers.
+  description: I tell stories in the first person, respond to comments, and prepare my next sentence. Every request includes the episode brief and writing rules.
   direction: Main topic
   direction-placeholder: Original stories about campus life
-  details: Story details to preserve
+  details: Episode brief (Markdown)
   details-placeholder: University dorm, late-night noodles, a teacher checking rooms. Keep the characters and details you specify.
   start: Start livestream
   pause: Pause livestream
@@ -15,7 +15,7 @@ livestream:
   sample: Send sample comments
   mock-start: Start random comments
   mock-stop: Stop random comments
-  unavailable: Open the character stage to connect speech playback.
+  unavailable: Open the character stage to connect the livestream loop.
   rejected: The command was not accepted. Check your inputs and wait for ordinary chat speech to finish.
   error: 'Livestream: {message}'
   counts: '{pending} candidate comments · {played} sentences played'
@@ -29,6 +29,38 @@ livestream:
     stopped: Stopped
     running: Running
     paused: Paused
+  mode: Livestream mode
+  text-mode: Text rehearsal · 30 minutes
+  speech-mode: Voice livestream
+  text-description: Sentences appear at about 220 characters per minute. Pauses stop the clock. The rehearsal stops after 30 minutes without speech synthesis or playback.
+  start-rehearsal: Start 30-minute text rehearsal
+  brief-help: Describe the role, fixed details, plot, schedule, and excluded topics before starting. Paste or import Markdown, up to 12000 characters.
+  import-brief: Import episode Markdown
+  fill-template: Insert blank template
+  brief-too-long: The brief exceeds 12000 characters or the file exceeds 60 KB.
+  import-failed: The file read failed. Select it again.
+  clock: '{elapsed} / {total}'
+  completed: Rehearsal complete
+  viewer-name: Simulated viewer name
+  viewer-comment: Simulated comment
+  comment-placeholder: What did you say when the teacher came in?
+  send-comment: Send comment
+  comment-help: Change the name to play another viewer. Comments allow 500 characters. The host selects comments and does not answer every message.
+  export: Copy transcript (Markdown)
+  copied: Transcript copied
+  copy-failed: Copy failed. Check clipboard permissions.
+  full-log: Show all entries
+  recent-log: Show latest 30 entries
+  transcript: Rehearsal transcript (newest first)
+  reply-to: 'Reply to {nickname}: {text}'
+  log-kind:
+    host: Host
+    direction: Operator direction
+  action:
+    continue: Continue story
+    reply: Reply to comment
+    expand: Expand audience topic
+    return: Return to main topic
   samples:
     - What happened when the teacher opened the door?
     - How did you hide the smell of the noodles?

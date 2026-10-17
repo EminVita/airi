@@ -4,14 +4,18 @@ import type { Batch, Snapshot } from '../libs/livestream/session'
 
 import { defineEventa, defineInvokeEventa } from '@moeru/eventa'
 import { createContext } from '@moeru/eventa/adapters/broadcast-channel'
-import { array, boolean, literal, maxLength, minLength, object, pipe, string, variant } from 'valibot'
+import { array, boolean, check, literal, maxLength, minLength, object, picklist, pipe, string, variant } from 'valibot'
 
 const identifier = pipe(string(), minLength(1), maxLength(100))
 const direction = pipe(string(), minLength(1), maxLength(200))
 const samples = pipe(array(pipe(string(), minLength(1), maxLength(500))), minLength(1), maxLength(40))
 /** Validates commands before the stage changes runtime state or starts provider calls. */
 export const commandSchema = variant('type', [
-  object({ type: literal('start'), characterId: identifier, settings: object({ direction, details: pipe(string(), maxLength(6000)) }) }),
+  object({ type: literal('start'), characterId: identifier, settings: pipe(
+    object({ direction, details: pipe(string(), maxLength(12000)), mode: picklist(['text', 'speech']) }),
+    check(settings => settings.mode !== 'text' || settings.details.trim().length > 0, 'A text rehearsal needs an episode brief'),
+  ) }),
+  object({ type: literal('comment'), sessionId: identifier, nickname: pipe(string(), minLength(1), maxLength(80)), text: pipe(string(), minLength(1), maxLength(500)) }),
   object({ type: literal('pause'), sessionId: identifier }),
   object({ type: literal('resume'), sessionId: identifier }),
   object({ type: literal('stop'), sessionId: identifier }),

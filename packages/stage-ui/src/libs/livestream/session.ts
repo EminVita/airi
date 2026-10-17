@@ -14,7 +14,7 @@ export const batchSchema = object({
   })), maxLength(100)),
 })
 
-/** One natural sentence, plus a checkpoint committed only after its audio ends. */
+/** One natural sentence, plus a checkpoint committed after delivery. */
 export const planSchema = object({
   action: picklist(['continue', 'reply', 'expand', 'return']),
   text: pipe(string(), minLength(1), maxLength(160)),
@@ -28,9 +28,22 @@ export const planSchema = object({
 
 export type Batch = import('valibot').InferOutput<typeof batchSchema>
 export type Plan = import('valibot').InferOutput<typeof planSchema>
-export interface Settings { direction: string, details: string }
+export interface Settings { direction: string, details: string, mode: 'speech' | 'text' }
 export type Comment = Batch['messages'][number] & { key: string, receivedAt: number }
-export interface Prepared { id: string, revision: number, plan: Plan, audio: Blob }
+export type Delivery = { kind: 'audio', audio: Blob } | { kind: 'text', durationMs: number }
+export interface Prepared { id: string, revision: number, plan: Plan, delivery: Delivery }
+
+/** The review log records actual output and accepted comments, never speculative sentences. */
+export interface TranscriptEntry {
+  id: string
+  kind: 'host' | 'comment' | 'direction'
+  elapsedMs: number
+  text: string
+  nickname: string
+  action: Plan['action'] | null
+  replies: { nickname: string, text: string }[]
+  completed: boolean
+}
 
 /** Runtime-only state. Audio, promises, and cancellation remain outside snapshots. */
 export interface Snapshot {
@@ -45,6 +58,10 @@ export interface Snapshot {
   preparing: boolean
   comments: Comment[]
   history: { text: string, action: Plan['action'] }[]
+  transcript: TranscriptEntry[]
+  elapsedMs: number
+  durationMs: number | null
+  completed: boolean
   error: string
   metrics: {
     received: number
@@ -76,6 +93,8 @@ export interface Reservation {
     playing: string
     finishSegment: boolean
     replacement: boolean
+    elapsedMs: number
+    remainingMs: number | null
   }
 }
 
@@ -108,13 +127,15 @@ export class Session {
   private failures = 0
   private startedAt = 0
   private endedAt: number | undefined
+  private elapsed = 0
+  private resumedAt = 0
   private state: Snapshot = this.empty()
 
   private empty(): Snapshot {
     return {
       sessionId: '',
       phase: 'stopped',
-      settings: { direction: '', details: '' },
+      settings: { direction: '', details: '', mode: 'text' },
       topic: '',
       checkpoint: '',
       mainlineCheckpoint: '',
@@ -123,23 +144,44 @@ export class Session {
       preparing: false,
       comments: [],
       history: [],
+      transcript: [],
+      elapsedMs: 0,
+      durationMs: null,
+      completed: false,
       error: '',
       metrics: { received: 0, played: 0, synthesizedCharacters: 0, discardedCharacters: 0, lastGenerationMs: 0, lastSynthesisMs: 0, firstAudioMs: null, lastGapMs: null, lastReplyWaitMs: null },
     }
   }
 
-  snapshot(): Snapshot {
-    return structuredClone({ ...this.state, comments: [...this.pending.values()], preparing: !!this.reservation })
+  snapshot(now = Date.now()): Snapshot {
+    return structuredClone({ ...this.state, elapsedMs: this.elapsedMs(now), comments: [...this.pending.values()], preparing: !!this.reservation })
+  }
+
+  private elapsedMs(now: number) {
+    return this.elapsed + (this.state.phase === 'running' ? Math.max(0, now - this.resumedAt) : 0)
+  }
+
+  private record(entry: TranscriptEntry) {
+    this.state.transcript.push(entry)
+    // A bounded log retains a normal rehearsal while limiting collector bursts.
+    this.state.transcript = this.state.transcript.slice(-5000)
+  }
+
+  due(now: number) {
+    return this.state.durationMs !== null && this.elapsedMs(now) >= this.state.durationMs
   }
 
   start(sessionId: string, settings: Settings, now: number) {
-    this.stop()
+    this.stop(now)
     this.state = this.empty()
     this.state.sessionId = sessionId
     this.state.settings = { ...settings }
     this.state.topic = settings.direction
     this.state.phase = 'running'
     this.startedAt = now
+    this.elapsed = 0
+    this.resumedAt = now
+    this.state.durationMs = settings.mode === 'text' ? 30 * 60_000 : null
     this.endedAt = undefined
     this.failures = 0
     this.replies = 0
@@ -153,15 +195,19 @@ export class Session {
   }
 
   private discardPrepared() {
-    if (this.prepared)
+    if (this.prepared?.delivery.kind === 'audio')
       this.state.metrics.discardedCharacters += this.prepared.plan.text.length
     this.prepared = undefined
     this.state.ready = ''
   }
 
-  pause() {
+  pause(now = Date.now()) {
     if (this.state.phase !== 'running')
       return
+    // Text appears as a complete sentence. Preserve it across pause, even during its reading interval.
+    if (this.active?.delivery.kind === 'text')
+      this.ended(this.active, now)
+    this.elapsed = this.elapsedMs(now)
     this.invalidate()
     this.active = undefined
     this.state.playing = ''
@@ -169,15 +215,19 @@ export class Session {
     this.endedAt = undefined
   }
 
-  resume() {
+  resume(now = Date.now()) {
     if (this.state.phase !== 'paused')
       return
     this.state.phase = 'running'
+    this.resumedAt = now
     this.state.error = ''
     this.failures = 0
   }
 
-  stop() {
+  stop(now = Date.now(), completed = false) {
+    if (this.active?.delivery.kind === 'text')
+      this.ended(this.active, now)
+    this.elapsed = this.elapsedMs(now)
     this.invalidate()
     this.active = undefined
     this.pending.clear()
@@ -186,9 +236,10 @@ export class Session {
     this.evaluatedVersion = 0
     this.state.playing = ''
     this.state.phase = 'stopped'
+    this.state.completed = completed
   }
 
-  redirect(direction: string) {
+  redirect(direction: string, now = Date.now()) {
     this.invalidate()
     this.state.settings.direction = direction
     this.state.topic = direction
@@ -196,6 +247,7 @@ export class Session {
     this.state.mainlineCheckpoint = ''
     this.replies = 0
     this.finishSegment = false
+    this.record({ id: `direction:${this.revision}`, kind: 'direction', elapsedMs: this.elapsedMs(now), text: direction, nickname: '', action: null, replies: [], completed: true })
   }
 
   receive(batch: Batch, now: number) {
@@ -213,6 +265,7 @@ export class Session {
       this.pending.set(key, { ...message, text, key, receivedAt: now })
       this.commentVersion++
       this.state.metrics.received++
+      this.record({ id: key, kind: 'comment', elapsedMs: this.elapsedMs(now), text, nickname: message.nickname, action: null, replies: [], completed: true })
     }
     // The newest candidates replace older unread messages during a burst.
     while (this.pending.size > 50)
@@ -233,7 +286,7 @@ export class Session {
   }
 
   reserve(now: number): Reservation | undefined {
-    if (this.state.phase !== 'running' || this.reservation)
+    if (this.state.phase !== 'running' || this.reservation || this.due(now))
       return
     this.prune(now)
     const projected = this.active?.revision === this.revision ? this.active.plan : undefined
@@ -265,6 +318,8 @@ export class Session {
         playing: this.state.playing,
         finishSegment,
         replacement,
+        elapsedMs: this.elapsedMs(now),
+        remainingMs: this.state.durationMs === null ? null : Math.max(0, this.state.durationMs - this.elapsedMs(now)),
       },
     }
     return this.reservation
@@ -306,16 +361,18 @@ export class Session {
     return true
   }
 
-  preparedAudio(work: Reservation, plan: Plan, audio: Blob, generationMs: number, synthesisMs: number) {
+  preparedOutput(work: Reservation, plan: Plan, delivery: Delivery, generationMs: number, synthesisMs: number) {
     if (work.sessionId !== this.state.sessionId)
       return
-    this.state.metrics.synthesizedCharacters += plan.text.length
+    if (delivery.kind === 'audio')
+      this.state.metrics.synthesizedCharacters += plan.text.length
     if (!this.owns(work)) {
-      this.state.metrics.discardedCharacters += plan.text.length
+      if (delivery.kind === 'audio')
+        this.state.metrics.discardedCharacters += plan.text.length
       return
     }
     this.discardPrepared()
-    this.prepared = { id: `${this.state.sessionId}:${work.id}`, revision: work.revision, plan, audio }
+    this.prepared = { id: `${this.state.sessionId}:${work.id}`, revision: work.revision, plan, delivery }
     this.state.ready = plan.text
     this.state.metrics.lastGenerationMs = generationMs
     this.state.metrics.lastSynthesisMs = synthesisMs
@@ -325,7 +382,7 @@ export class Session {
   }
 
   take(now: number): Prepared | undefined {
-    if (this.state.phase !== 'running' || this.active || !this.prepared)
+    if (this.state.phase !== 'running' || this.active || !this.prepared || this.due(now))
       return
     this.prune(now)
     if (this.prepared.plan.replyToIds.some(id => !this.pending.has(id))) {
@@ -342,11 +399,25 @@ export class Session {
   began(clip: Prepared, now: number) {
     if (this.active !== clip)
       return
-    this.state.metrics.firstAudioMs ??= now - this.startedAt
+    if (clip.delivery.kind === 'audio')
+      this.state.metrics.firstAudioMs ??= now - this.startedAt
     this.state.metrics.lastGapMs = this.endedAt === undefined ? null : now - this.endedAt
     const arrivals = clip.plan.replyToIds.map(id => this.pending.get(id)?.receivedAt).filter((time): time is number => time !== undefined)
     if (arrivals.length)
       this.state.metrics.lastReplyWaitMs = now - Math.min(...arrivals)
+    this.record({
+      id: clip.id,
+      kind: 'host',
+      elapsedMs: this.elapsedMs(now),
+      text: clip.plan.text,
+      nickname: '',
+      action: clip.plan.action,
+      replies: clip.plan.replyToIds.flatMap((id) => {
+        const comment = this.pending.get(id)
+        return comment ? [{ nickname: comment.nickname, text: comment.text }] : []
+      }),
+      completed: false,
+    })
   }
 
   ended(clip: Prepared, now: number) {
@@ -356,6 +427,9 @@ export class Session {
     this.state.playing = ''
     this.endedAt = now
     this.state.metrics.played++
+    const entry = this.state.transcript.find(item => item.id === clip.id)
+    if (entry)
+      entry.completed = true
     this.state.history.push({ text: clip.plan.text, action: clip.plan.action })
     this.state.history = this.state.history.slice(-20)
     for (const id of clip.plan.replyToIds)

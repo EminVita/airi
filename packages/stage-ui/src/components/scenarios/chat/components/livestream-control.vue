@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import type { Snapshot } from '../../../../libs/livestream/session'
+import type { Settings, Snapshot } from '../../../../libs/livestream/session'
 import type { LivestreamCommand } from '../../../../services/livestream'
 
 import { defineInvoke } from '@moeru/eventa'
 import { errorMessageFrom } from '@moeru/std'
-import { Button, Collapsible, FieldInput, FieldTextArea, GhostButton } from '@proj-airi/ui'
+import { Button, Collapsible, FieldInput, GhostButton } from '@proj-airi/ui'
 import { computed, onMounted, onScopeDispose, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
+
+import LivestreamRehearsal from './livestream-rehearsal.vue'
+import LivestreamSetup from './livestream-setup.vue'
 
 import { getLivestreamContext, livestreamCommand, livestreamRequestSnapshot, livestreamSnapshot } from '../../../../services/livestream'
 
@@ -15,6 +18,9 @@ const { t } = useI18n()
 const opened = shallowRef(false)
 const direction = shallowRef('')
 const details = shallowRef('')
+const mode = shallowRef<Settings['mode']>('text')
+const nickname = shallowRef('')
+const message = shallowRef('')
 const guidance = shallowRef('')
 const connected = shallowRef(false)
 const pending = shallowRef(false)
@@ -23,7 +29,9 @@ const state = shallowRef<Snapshot>()
 const mockEnabled = shallowRef(false)
 const active = computed(() => state.value?.phase === 'running')
 const paused = computed(() => state.value?.phase === 'paused')
-const canStart = computed(() => connected.value && !active.value && !paused.value && direction.value.trim().length > 0)
+const canStart = computed(() => connected.value && !active.value && !paused.value
+  && direction.value.trim().length > 0 && direction.value.length <= 200
+  && details.value.length <= 12000 && (mode.value === 'speech' || details.value.trim().length > 0))
 const context = getLivestreamContext()
 const invoke = defineInvoke(context, livestreamCommand)
 const stopSnapshot = context.on(livestreamSnapshot, ({ body }) => {
@@ -72,6 +80,14 @@ async function redirect() {
   if (!error.value)
     guidance.value = ''
 }
+
+async function sendComment() {
+  if (!state.value)
+    return
+  await send({ type: 'comment', sessionId: state.value.sessionId, nickname: nickname.value.trim(), text: message.value.trim() })
+  if (!error.value)
+    message.value = ''
+}
 </script>
 
 <template>
@@ -91,17 +107,14 @@ async function redirect() {
         </span>
       </GhostButton>
     </template>
-    <section :aria-label="t('stage.livestream.title')" :class="['max-h-80 flex flex-col gap-3 overflow-y-auto', 'rounded-xl bg-neutral-50 p-3 dark:bg-neutral-950']">
+    <section :aria-label="t('stage.livestream.title')" :class="['max-h-[65vh] flex flex-col gap-3 overflow-y-auto', 'rounded-xl bg-neutral-50 p-3 dark:bg-neutral-950']">
       <p :class="['text-xs text-neutral-500 dark:text-neutral-400']">
         {{ t('stage.livestream.description') }}
       </p>
-      <template v-if="!active && !paused">
-        <FieldInput v-model="direction" :label="t('stage.livestream.direction')" :placeholder="t('stage.livestream.direction-placeholder')" />
-        <FieldTextArea v-model="details" :label="t('stage.livestream.details')" :placeholder="t('stage.livestream.details-placeholder')" :rows="3" :required="false" />
-      </template>
+      <LivestreamSetup v-if="!active && !paused" v-model:direction="direction" v-model:details="details" v-model:mode="mode" />
       <div :class="['flex flex-wrap gap-2']">
-        <Button v-if="!active && !paused" size="sm" color="primary" variant="primary" :disabled="!canStart" :loading="pending" @click="send({ type: 'start', characterId: props.characterId, settings: { direction: direction.trim(), details } })">
-          {{ t('stage.livestream.start') }}
+        <Button v-if="!active && !paused" size="sm" color="primary" variant="primary" :disabled="!canStart" :loading="pending" @click="send({ type: 'start', characterId: props.characterId, settings: { direction: direction.trim(), details, mode } })">
+          {{ t(mode === 'text' ? 'stage.livestream.start-rehearsal' : 'stage.livestream.start') }}
         </Button>
         <Button v-if="active" size="sm" :loading="pending" @click="control('pause')">
           {{ t('stage.livestream.pause') }}
@@ -137,7 +150,7 @@ async function redirect() {
         <p role="status" :class="['text-xs text-neutral-500 dark:text-neutral-400']">
           {{ t('stage.livestream.counts', { pending: state.comments.length, played: state.metrics.played }) }}
         </p>
-        <p v-if="state.playing" :class="['break-words']">
+        <p v-if="state.playing" aria-live="polite" :class="['break-words']">
           <strong>{{ t('stage.livestream.speaking') }}</strong> {{ state.playing }}
         </p>
         <p v-if="state.ready" :class="['break-words text-xs text-neutral-500 dark:text-neutral-400']">
@@ -159,6 +172,7 @@ async function redirect() {
           </ol>
         </details>
       </template>
+      <LivestreamRehearsal v-if="state?.sessionId" v-model:nickname="nickname" v-model:message="message" :state="state" :pending="pending" @comment="sendComment" />
     </section>
   </Collapsible>
 </template>

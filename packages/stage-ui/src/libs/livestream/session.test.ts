@@ -7,7 +7,7 @@ import { parsePlan, Session } from './session'
 const now = 100_000
 function createSession() {
   const session = new Session()
-  session.start('live', { direction: 'Campus', details: 'Noodles in the dorm' }, now)
+  session.start('live', { direction: 'Campus', details: 'Noodles in the dorm', mode: 'speech' }, now)
   return session
 }
 function plan(patch: Partial<Plan> = {}): Plan {
@@ -19,7 +19,7 @@ function batch(id = '1', text = 'What happened next?'): Batch {
 function prepare(session: Session, value = plan()) {
   const work = session.reserve(now)!
   expect(session.accepts(work, value, now)).toBe(true)
-  session.preparedAudio(work, value, new Blob(['audio']), 100, 50)
+  session.preparedOutput(work, value, { kind: 'audio', audio: new Blob(['audio']) }, 100, 50)
 }
 
 describe('livestream session', () => {
@@ -51,7 +51,7 @@ describe('livestream session', () => {
     expect(second.plan.text).toBe('The roommates hid the noodles.')
     const reply = plan({ action: 'reply', text: 'Yes, the teacher noticed!', replyToIds: [key] })
     expect(session.accepts(replacement, reply, now + 4100)).toBe(true)
-    session.preparedAudio(replacement, reply, new Blob(['reply']), 200, 100)
+    session.preparedOutput(replacement, reply, { kind: 'audio', audio: new Blob(['reply']) }, 200, 100)
     expect(session.take(now)).toBeUndefined()
     session.ended(second, now + 7000)
     const answer = session.take(now)!
@@ -70,7 +70,7 @@ describe('livestream session', () => {
     const work = session.reserve(now)!
     const reply = plan({ action: 'reply', text: 'A short answer.', replyToIds: [session.snapshot().comments[0]!.key] })
     expect(session.accepts(work, reply, now)).toBe(true)
-    session.preparedAudio(work, reply, new Blob(['reply']), 100, 50)
+    session.preparedOutput(work, reply, { kind: 'audio', audio: new Blob(['reply']) }, 100, 50)
     expect(session.snapshot().metrics.discardedCharacters).toBe('An unplayed sentence.'.length)
     session.ended(first, now + 4000)
     expect(session.take(now)!.plan.text).toBe('A short answer.')
@@ -83,7 +83,7 @@ describe('livestream session', () => {
     const clip = session.take(now)!
     const work = session.reserve(now)!
     session.pause()
-    session.preparedAudio(work, plan(), new Blob(['late']), 100, 50)
+    session.preparedOutput(work, plan(), { kind: 'audio', audio: new Blob(['late']) }, 100, 50)
     session.ended(clip, now + 4000)
     expect(session.snapshot().ready).toBe('')
     expect(session.snapshot().checkpoint).toBe('')
@@ -130,7 +130,7 @@ describe('livestream session', () => {
     const session = createSession()
     const stale = session.reserve(now)!
     session.stop()
-    session.start('new-live', { direction: 'Campus', details: '' }, now)
+    session.start('new-live', { direction: 'Campus', details: '', mode: 'speech' }, now)
     expect(session.failed(stale, 'Old failure')).toBe(false)
     expect(session.snapshot().error).toBe('')
     for (let index = 0; index < 3; index++)
@@ -153,7 +153,7 @@ describe('livestream session', () => {
     expect(work.comments).toEqual([])
     const continuation = plan({ segmentComplete: true })
     expect(session.accepts(work, continuation, now)).toBe(true)
-    session.preparedAudio(work, continuation, new Blob(['audio']), 100, 50)
+    session.preparedOutput(work, continuation, { kind: 'audio', audio: new Blob(['audio']) }, 100, 50)
     session.ended(session.take(now)!, now + 8000)
     expect(session.reserve(now)?.context.finishSegment).toBe(false)
   })
@@ -191,7 +191,7 @@ describe('livestream session', () => {
     expect(work.context.mainlineCheckpoint).toBe('The teacher is at the door.')
     const returning = plan({ action: 'return', text: 'Back at the dorm, the teacher smiled.' })
     expect(session.accepts(work, returning, now)).toBe(true)
-    session.preparedAudio(work, returning, new Blob(['return']), 100, 50)
+    session.preparedOutput(work, returning, { kind: 'audio', audio: new Blob(['return']) }, 100, 50)
     session.ended(session.take(now)!, now + 3000)
     expect(session.snapshot().topic).toBe('Campus')
   })
@@ -208,8 +208,8 @@ describe('livestream session', () => {
   it('does not count late synthesis against a new broadcast', () => {
     const session = createSession()
     const work = session.reserve(now)!
-    session.start('new', { direction: 'Campus', details: '' }, now)
-    session.preparedAudio(work, plan(), new Blob(['late']), 100, 50)
+    session.start('new', { direction: 'Campus', details: '', mode: 'speech' }, now)
+    session.preparedOutput(work, plan(), { kind: 'audio', audio: new Blob(['late']) }, 100, 50)
     expect(session.snapshot().metrics.synthesizedCharacters).toBe(0)
     expect(session.snapshot().ready).toBe('')
   })

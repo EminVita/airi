@@ -5,7 +5,13 @@ Shared core for stage
 ## Autonomous livestream
 
 The desktop chat composer contains an optional **Autonomous livestream** panel.
-Set the character's chat provider, speech provider, and voice before starting.
+The default mode is a 30-minute text rehearsal. It needs a chat provider and an episode brief.
+Import or paste Markdown before starting. Enter a viewer name and comment to simulate audience participation.
+The rehearsal shows sentences in real time and makes no speech requests. Pauses stop its clock.
+Copy and save the Markdown transcript before starting another session or closing the Stage.
+See [the rehearsal guide and Markdown inputs](../../docs/livestream/README.md).
+
+For voice mode, set the character's chat provider, speech provider, and voice before starting.
 Enter a main topic and story details. Select **Start livestream** to generate and speak without user messages.
 Use **Send sample comments** or **Start random comments** to test audience events.
 Use **Pause livestream**, **Resume livestream**, or **Stop immediately** to control output.

@@ -11,7 +11,7 @@ The operator prioritizes continuous audio. An unfinished audience response canno
 ## Decision
 
 The existing desktop chat composer exposes a collapsed livestream control. The mounted Stage owns generation, synthesis, playback, and cancellation.
-Ordinary chat remains separate. A normal response, character change, or speech mute pauses or stops autonomous playback.
+Ordinary chat remains separate. A normal response or character change pauses or stops the loop. Speech mute pauses voice mode only.
 
 The feature reuses the selected character's chat and speech providers. It adds no dependency and no separate scoring service.
 The model selects comments and prepares the next sentence in one request. It has no tools and cannot browse.
@@ -21,7 +21,17 @@ MiniMax sentence synthesis produces audio before playback. Providers that only s
 
 ## Scheduling and narrative state
 
-`libs/livestream/session.ts` owns scheduling policy. `composables/use-livestream-host.ts` owns external calls and audio playback.
+`libs/livestream/session.ts` owns scheduling policy. `composables/use-livestream-host.ts` owns external calls and delivery.
+
+Text rehearsal uses the same policy with timed text delivery. It never opens a speech output or calls synthesis.
+Its 30-minute clock includes model waits and excludes pauses. A host timer enforces the limit during stalled requests.
+Displayed text commits on pause or stop because the complete sentence is already visible.
+The next request receives elapsed and remaining time for pacing and closing.
+
+The operator imports or pastes an episode brief before a text rehearsal. The limit is 12000 characters.
+Every planner request includes the full writing skill, host rules, workflow rules, and brief.
+These Markdown imports are build assets. They are not discovered through Codex's `AGENTS.md` or loaded from arbitrary filesystem paths.
+See [the operator guide](../../livestream/README.md) for file ownership, reload behavior, and the writing skill's runtime scope.
 
 - One sentence plays while at most one sentence waits with prepared audio.
 - One preparation request runs at a time. It contains at most 20 candidate comments and eight completed sentences.
@@ -73,6 +83,7 @@ The host validates batches and model plans with Valibot. A response must referen
 `MockComments` uses the same event. The UI supplies 16 sample messages, including repeats, topic changes, and rejected requests.
 The simulator sends one to four comments every three to twelve seconds. Pause and stop cancel its timer.
 The manual sample button emits one batch. Neither mode fabricates real viewers or reads a live platform.
+The manual comment command accepts a nickname and text. It emits the same batch contract with a unique message ID.
 
 ## Content and failure policy
 
@@ -94,6 +105,7 @@ It counts synthesized characters and discarded prepared characters. These are es
 Actual charges depend on the selected voice and provider. A cancelled request can still incur charges.
 
 Broadcast state stays in memory and resets on a new start. The loop stores no cross-broadcast memory or account credentials.
+The review log retains the latest 5000 output, comment, and direction entries. The copy action includes the brief and available log as Markdown.
 Closing only the chat control does not stop the Stage. Use Pause or Stop to end autonomous output.
 
 ## Verification
@@ -102,3 +114,5 @@ Policy tests cover slow replacements, sentence commits, return bookmarks, expiry
 A browser test covers real controls and Eventa transport across separate BroadcastChannel instances.
 Desktop verification uses the existing ChatGPT and MiniMax configuration. It measures actual speech and checks the existing lip-sync path.
 Development tests use simulated generation and audio without provider calls. A short real speech check runs only after the other checks pass.
+Text rehearsal tests advance a simulated clock through 30 minutes and a pause. They assert that no speech output opens.
+Rehearsal verification does not require a real speech check.

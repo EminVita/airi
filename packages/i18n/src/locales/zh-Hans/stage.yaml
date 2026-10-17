@@ -1,9 +1,9 @@
 livestream:
   title: 自主直播
-  description: 我会用第一人称讲故事、接弹幕，边说边准备下一句。聊天和语音沿用你当前的配置。
+  description: 我会用第一人称讲故事、接弹幕，边讲边准备下一句。每次生成都会读取本场内容和“好好说话”规则。
   direction: 直播主线
   direction-placeholder: 讲一些原创校园故事
-  details: 必须保留的故事细节
+  details: 本场内容（Markdown）
   details-placeholder: 大学宿舍、深夜泡面、查寝老师。可以填写人物设定和必须保留的情节。
   start: 开始直播
   pause: 暂停直播
@@ -15,7 +15,7 @@ livestream:
   sample: 发送一批模拟弹幕
   mock-start: 开始随机弹幕
   mock-stop: 停止随机弹幕
-  unavailable: 请打开角色主窗口，以连接语音播放。
+  unavailable: 请打开角色主窗口，以连接直播循环。
   rejected: 操作未被接受。请检查输入，并等待普通聊天的语音结束。
   error: '直播提示：{message}'
   counts: '待选弹幕 {pending} 条 · 已播出 {played} 句'
@@ -25,6 +25,38 @@ livestream:
   diagnostics: 耗时与候选弹幕
   timings: '文字生成 {generation} 毫秒 · 语音合成 {speech} 毫秒 · 最近句间等待 {gap} 毫秒 · 最近弹幕等待 {wait} 毫秒'
   usage: '已合成 {generated} 个文本字符 · 已丢弃 {discarded} 个文本字符'
+  mode: 直播方式
+  text-mode: 文字排练 · 30 分钟
+  speech-mode: 语音直播
+  text-description: 我会逐句显示文字，按约每分钟 220 字留出阅读时间。暂停不计时，到 30 分钟自动停止。只调用文字模型，不合成或播放语音。
+  start-rehearsal: 开始 30 分钟文字排练
+  brief-help: 开播前写清角色、固定设定、想讲的情节、分段安排和不想聊的内容。可以粘贴或导入 Markdown，最多 12000 字符。
+  import-brief: 导入本场 Markdown
+  fill-template: 填入空白模板
+  brief-too-long: 本场内容不能超过 12000 字符，文件不能超过 60 KB。
+  import-failed: 文件读取失败，请重新选择。
+  clock: '{elapsed} / {total}'
+  completed: 排练完成
+  viewer-name: 模拟观众昵称
+  viewer-comment: 模拟弹幕
+  comment-placeholder: 老师进门以后，你怎么解释的？
+  send-comment: 发送弹幕
+  comment-help: 换个昵称就能扮演另一位观众。每条最多 500 字符。AI 会筛选弹幕，未必逐条回复。
+  export: 复制记录（Markdown）
+  copied: 记录已复制
+  copy-failed: 复制失败，请检查剪贴板权限。
+  full-log: 显示全部记录
+  recent-log: 只显示最近 30 条
+  transcript: 排练记录（最新在前）
+  reply-to: '回应 {nickname}：{text}'
+  log-kind:
+    host: 主播
+    direction: 我调整了方向
+  action:
+    continue: 继续讲述
+    reply: 接弹幕
+    expand: 展开观众话题
+    return: 回到主线
   phase:
     stopped: 未运行
     running: 运行中

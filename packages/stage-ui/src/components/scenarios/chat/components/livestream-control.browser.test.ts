@@ -48,6 +48,9 @@ it('sends operator commands across the browser channel and displays host acknowl
       case 'mock':
         mockEnabled = command.enabled
         break
+      case 'comment':
+        session.receive({ sessionId: command.sessionId, batchId: 'manual', source: 'manual', messages: [{ id: 'manual', userId: command.nickname, nickname: command.nickname, text: command.text, createdAt: Date.now() }] }, Date.now())
+        break
     }
     publish()
     return { accepted: true }
@@ -57,14 +60,24 @@ it('sends operator commands across the browser channel and displays host acknowl
     global: { plugins: [createI18n({ legacy: false, locale: 'en', messages: { en } })] },
   })
   await screen.getByRole('button', { name: /Autonomous livestream/ }).click()
-  const start = screen.getByRole('button', { name: 'Start livestream', exact: true })
+  const start = screen.getByRole('button', { name: 'Start 30-minute text rehearsal', exact: true })
   await expect.element(start).toBeDisabled()
   await screen.getByRole('textbox', { name: 'Main topic', exact: true }).fill('Campus stories')
-  await screen.getByRole('textbox', { name: 'Story details to preserve', exact: true }).fill('The roommate is called Lin.')
+  await expect.element(start).toBeDisabled()
+  await screen.getByRole('button', { name: 'Insert blank template', exact: true }).click()
+  await expect.element(screen.getByRole('textbox', { name: /^Episode brief \(Markdown\)/ })).toHaveValue(expect.stringContaining('# 本场直播内容'))
+  await expect.element(screen.getByRole('button', { name: 'Insert blank template', exact: true })).toBeDisabled()
+  await screen.getByRole('textbox', { name: /^Episode brief \(Markdown\)/ }).fill('The roommate is called Lin.')
   await expect.element(start).toBeEnabled()
   await start.click()
   await expect.element(screen.getByRole('button', { name: 'Pause livestream', exact: true })).toBeVisible()
-  expect(received[0]).toEqual({ type: 'start', characterId: 'character', settings: { direction: 'Campus stories', details: 'The roommate is called Lin.' } })
+  expect(received[0]).toEqual({ type: 'start', characterId: 'character', settings: { direction: 'Campus stories', details: 'The roommate is called Lin.', mode: 'text' } })
+
+  await screen.getByRole('textbox', { name: 'Simulated viewer name', exact: true }).fill('阿杰')
+  await screen.getByRole('textbox', { name: 'Simulated comment', exact: true }).fill('我也有同款室友，你后来怎么办？')
+  await screen.getByRole('button', { name: 'Send comment', exact: true }).click()
+  await expect.element(screen.getByRole('list', { name: 'Rehearsal transcript (newest first)' })).toHaveTextContent('我也有同款室友，你后来怎么办？')
+  await expect.element(screen.getByRole('textbox', { name: 'Simulated comment', exact: true })).toHaveValue('')
 
   await screen.getByRole('button', { name: 'Send sample comments', exact: true }).click()
   await expect.poll(() => received.some(command => command.type === 'sample' && command.samples.length === 16)).toBe(true)

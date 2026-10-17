@@ -568,7 +568,8 @@ function setupAnalyser() {
 
 watch(speechMuted, (muted) => {
   if (muted) {
-    void livestream.pause()
+    if (livestream.speechRunning.value)
+      void livestream.pause()
     for (const turn of voice.activeTurns)
       voice.getSpeech(turn)?.cancel('Speech muted')
   }

@@ -11,6 +11,7 @@ import { onScopeDispose, shallowRef, watch } from 'vue'
 
 import { MockComments } from '../libs/livestream/mock-comments'
 import { createPlannerProvider, plannerInstructions } from '../libs/livestream/prompt'
+import { readingDuration } from '../libs/livestream/rehearsal'
 import { batchSchema, parsePlan, Session } from '../libs/livestream/session'
 import { commandSchema, getLivestreamContext, livestreamBatch, livestreamCommand, livestreamRequestSnapshot, livestreamSnapshot } from '../services/livestream'
 import { useLLM } from '../stores/ai/chat-llm/llm'
@@ -30,11 +31,13 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
   const context = getLivestreamContext()
   const session = new Session()
   const running = shallowRef(false)
+  const speechRunning = shallowRef(false)
   let characterId = ''
   let disposed = false
   let commandRevision = 0
   let generation: AbortController | undefined
-  let playing: { clip: Prepared, abort: AbortController, group: PlaybackGroup } | undefined
+  let playing: { clip: Prepared, abort: AbortController, group?: PlaybackGroup, timer?: ReturnType<typeof setTimeout> } | undefined
+  let clock: ReturnType<typeof setInterval> | undefined
   const outputs = new Map<string, SpeechOutput>()
   let retry: ReturnType<typeof setTimeout> | undefined
   let source: MockComments | undefined
@@ -43,9 +46,24 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
   function publish() {
     const state = session.snapshot()
     running.value = state.phase === 'running'
+    speechRunning.value = running.value && state.settings.mode === 'speech'
     context.emit(livestreamSnapshot, { connected: !disposed, state, mockEnabled })
-    if (state.phase !== 'running')
+    if (state.phase !== 'running') {
       source?.stop()
+      clearInterval(clock)
+      clock = undefined
+    }
+  }
+
+  function startClock() {
+    clearInterval(clock)
+    // Rehearsal time includes generation waits, excludes pauses, and stops even when a provider hangs.
+    clock = setInterval(() => {
+      if (session.due(Date.now()))
+        void stop(true)
+      else
+        publish()
+    }, 1000)
   }
 
   function stopPreparation() {
@@ -59,8 +77,8 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
   async function silence() {
     const current = playing
     current?.abort.abort('Livestream playback cancelled')
-    if (current)
-      await current.group.stop({ fadeMs: 0 })
+    clearTimeout(current?.timer)
+    await current?.group?.stop({ fadeMs: 0 })
     if (playing === current)
       playing = undefined
   }
@@ -74,9 +92,9 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
     await silence()
   }
 
-  async function stop() {
+  async function stop(completed = false) {
     commandRevision++
-    session.stop()
+    session.stop(Date.now(), completed)
     stopPreparation()
     source?.stop()
     source = undefined
@@ -121,6 +139,10 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
       if (!session.accepts(work, plan, Date.now()))
         return
       const generationMs = performance.now() - began
+      if (work.context.settings.mode === 'text') {
+        session.preparedOutput(work, plan, { kind: 'text', durationMs: readingDuration(plan.text) }, generationMs, 0)
+        return
+      }
       const state = session.snapshot()
       const turn = { sessionId: state.sessionId, turnId: `${state.sessionId}:${work.id}` }
       const output = await openOutput(turn, characterId)
@@ -147,7 +169,7 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
         outputs.clear()
         outputs.set(turn.turnId, output)
       }
-      session.preparedAudio(work, plan, audio, generationMs, performance.now() - synthesisStart)
+      session.preparedOutput(work, plan, { kind: 'audio', audio }, generationMs, performance.now() - synthesisStart)
     }
     catch (error) {
       if (!controller.signal.aborted && session.failed(work, errorMessageFrom(error) ?? 'Livestream preparation failed')) {
@@ -171,6 +193,19 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
   }
 
   async function play(clip: Prepared) {
+    if (clip.delivery.kind === 'text') {
+      const current = { clip, abort: new AbortController(), timer: setTimeout(() => {
+        if (playing !== current)
+          return
+        session.ended(clip, Date.now())
+        playing = undefined
+        pump()
+      }, clip.delivery.durationMs) }
+      playing = current
+      session.began(clip, Date.now())
+      publish()
+      return
+    }
     const output = outputs.get(clip.id)
     outputs.delete(clip.id)
     if (!output) {
@@ -184,7 +219,7 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
     playing = current
     let started = false
     try {
-      const result = await group.enqueue({ id: clip.id, audio: clip.audio, signal: abort.signal, onStart: () => {
+      const result = await group.enqueue({ id: clip.id, audio: clip.delivery.audio, signal: abort.signal, onStart: () => {
         started = true
         session.began(clip, Date.now())
         output.onPlaybackStart?.({ id: clip.id, text: clip.plan.text })
@@ -219,6 +254,10 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
   function pump() {
     if (disposed || session.snapshot().phase !== 'running')
       return
+    if (session.due(Date.now())) {
+      void stop(true)
+      return
+    }
     if (!playing) {
       const clip = session.take(Date.now())
       if (clip)
@@ -259,6 +298,8 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
           return { accepted: false }
         characterId = command.characterId
         session.start(nanoid(), command.settings, Date.now())
+        if (command.settings.mode === 'text')
+          startClock()
         pump()
         return { accepted: true }
       }
@@ -275,6 +316,8 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
           if (characterId !== cards.activeCardId || voice.activeTurns.length > 0)
             return { accepted: false }
           session.resume()
+          if (session.snapshot().settings.mode === 'text')
+            startClock()
           if (mockEnabled)
             startMock()
           pump()
@@ -297,6 +340,19 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
           context.emit(livestreamBatch, sample)
           break
         }
+        case 'comment': {
+          if (!running.value || !command.nickname.trim() || !command.text.trim())
+            return { accepted: false }
+          const id = nanoid()
+          // Manual viewers use the collector contract. Nicknames identify one simulated viewer within this source.
+          context.emit(livestreamBatch, {
+            sessionId: command.sessionId,
+            batchId: id,
+            source: 'manual',
+            messages: [{ id, userId: command.nickname.trim(), nickname: command.nickname.trim(), text: command.text.trim(), createdAt: Date.now() }],
+          })
+          break
+        }
       }
       publish()
       return { accepted: true }
@@ -313,5 +369,5 @@ export function useLivestreamHost(openOutput: (turn: TurnRef, characterId: strin
     cleanup.forEach(dispose => dispose())
     void stop()
   })
-  return { running, pause }
+  return { running, speechRunning, pause }
 }
